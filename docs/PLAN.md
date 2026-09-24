@@ -1,3 +1,4 @@
+
 # GREENIFY: SYSTEM IMPLEMENTATION PLAN
 
 ## 1. Executive Summary & Architecture Overview
