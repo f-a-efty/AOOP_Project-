@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../main.dart';
 
-class UserDashboardTab extends StatelessWidget {
+class UserDashboardTab extends ConsumerWidget {
   const UserDashboardTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userName = ref.watch(userNameProvider) ?? 'Citizen Recycler';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -30,7 +34,7 @@ class UserDashboardTab extends StatelessWidget {
                     children: [
                       const Text('Welcome back,', style: TextStyle(color: Colors.white70, fontSize: 14)),
                       const SizedBox(height: 4),
-                      const Text('Rakibul Islam', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                      Text(userName, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

@@ -78,12 +78,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         const SizedBox(height: 32),
         ElevatedButton(
           onPressed: () {
-            if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
+            final name = _nameController.text.trim();
+            final phone = _phoneController.text.trim();
+            if (name.isEmpty || phone.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Please fill all required fields.')),
               );
               return;
             }
+            ref.read(userNameProvider.notifier).state = name;
+            ref.read(userPhoneProvider.notifier).state = phone;
             setState(() => _step = 2);
           },
           child: const Text('Continue to OTP Verification'),
@@ -130,7 +134,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         const SizedBox(height: 32),
         ElevatedButton(
           onPressed: () {
+            if (_nameController.text.isNotEmpty) {
+              ref.read(userNameProvider.notifier).state = _nameController.text;
+            }
+            if (_phoneController.text.isNotEmpty) {
+              ref.read(userPhoneProvider.notifier).state = _phoneController.text;
+            }
             ref.read(userRoleProvider.notifier).state = 'USER';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Account created for ${_nameController.text.isNotEmpty ? _nameController.text : "User"}! Welcome to Greenify.')),
+            );
             Navigator.pop(context);
           },
           child: const Text('Verify & Create Account'),

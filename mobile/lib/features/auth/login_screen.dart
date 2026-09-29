@@ -192,6 +192,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _handleLogin() {
+    final username = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (username.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your phone number or email.')),
+      );
+      return;
+    }
+
+    if (password.isEmpty || password.length < 8 || !RegExp(r'\d').hasMatch(password)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid password. Password must be at least 8 characters long and contain at least one number.')),
+      );
+      return;
+    }
+
+    // Save phone & role and authorize login
+    ref.read(userPhoneProvider.notifier).state = username;
     ref.read(userRoleProvider.notifier).state = _selectedRole;
   }
 }
