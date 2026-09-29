@@ -17,12 +17,15 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.greenify.repository.UserRepository;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OtpService {
 
     private final OtpCodeRepository otpCodeRepository;
+    private final UserRepository userRepository;
     private final SmsGateway smsGateway;
     private final PasswordEncoder passwordEncoder;
 
@@ -37,6 +40,11 @@ public class OtpService {
 
     @Transactional
     public String sendOtp(String phoneNumber, OtpPurpose purpose) {
+        String altPhone = phoneNumber.startsWith("+88") ? phoneNumber.substring(3) : ("+88" + phoneNumber);
+        if (purpose == OtpPurpose.REGISTER && (userRepository.existsByPhoneNumber(phoneNumber) || userRepository.existsByPhoneNumber(altPhone))) {
+            throw new BadRequestException("Phone number is already registered. Please log in instead.");
+        }
+
         String code = testMode ? fixedCode : String.format("%06d", new SecureRandom().nextInt(1000000));
         String codeHash = passwordEncoder.encode(code);
 

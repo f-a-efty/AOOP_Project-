@@ -17,6 +17,8 @@ void main() {
 final userRoleProvider = StateProvider<String?>((ref) => null); // 'USER', 'COMPANY', 'ADMIN'
 final userNameProvider = StateProvider<String?>((ref) => null);
 final userPhoneProvider = StateProvider<String?>((ref) => null);
+final authTokenProvider = StateProvider<String?>((ref) => null);
+final userIdProvider = StateProvider<int?>((ref) => null);
 
 class GreenifyApp extends ConsumerWidget {
   const GreenifyApp({super.key});

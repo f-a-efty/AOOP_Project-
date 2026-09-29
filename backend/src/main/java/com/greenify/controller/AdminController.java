@@ -8,6 +8,7 @@ import com.greenify.repository.RecyclingCompanyRepository;
 import com.greenify.repository.UserRepository;
 import com.greenify.security.UserPrincipal;
 import com.greenify.service.AdminService;
+import com.greenify.service.GeminiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -75,6 +76,33 @@ public class AdminController {
         String email = principal != null ? principal.getUsername() : "admin@greenify.bd";
         adminService.updateEconomicsConfig(key, value, email);
         return ResponseEntity.ok(Map.of("success", true, "message", "Economics rule updated successfully."));
+    }
+
+    private final GeminiService geminiService;
+
+    @GetMapping("/ai/environmental-prediction")
+    public ResponseEntity<Map<String, Object>> getEnvironmentalPrediction(
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(geminiService.getEnvironmentalPrediction(query));
+    }
+
+    @PostMapping("/ai/environmental-prediction/generate")
+    public ResponseEntity<Map<String, Object>> generateEnvironmentalPrediction(
+            @RequestBody(required = false) Map<String, String> body) {
+        String query = body != null ? body.get("query") : null;
+        return ResponseEntity.ok(geminiService.getEnvironmentalPrediction(query));
+    }
+
+    @GetMapping("/ai/gemini-config")
+    public ResponseEntity<Map<String, Object>> getGeminiConfig() {
+        return ResponseEntity.ok(geminiService.getGeminiConfig());
+    }
+
+    @PostMapping("/ai/gemini-config")
+    public ResponseEntity<?> saveGeminiConfig(@RequestBody Map<String, String> body) {
+        String apiKey = body.get("apiKey");
+        geminiService.saveGeminiApiKey(apiKey);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Gemini API key saved successfully."));
     }
 
     @GetMapping("/audit-logs")

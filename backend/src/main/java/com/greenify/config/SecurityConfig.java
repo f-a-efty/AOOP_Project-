@@ -36,6 +36,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
+                                "/sim",
                                 "/sim/**",
                                 "/booths/*/qr",
                                 "/booths/*/deposit-sessions/*/weight",

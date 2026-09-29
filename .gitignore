@@ -1,1 +1,8 @@
 node_modules
+*.log
+backend/*.log
+backend/target/
+target/
+*.class
+*.jar
+.env

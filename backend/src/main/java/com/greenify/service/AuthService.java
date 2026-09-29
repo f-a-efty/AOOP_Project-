@@ -84,6 +84,10 @@ public class AuthService {
             throw new BadRequestException("Company email is already registered.");
         }
 
+        if (userRepository.existsByPhoneNumber(request.getContactPhone())) {
+            throw new BadRequestException("Company contact phone number is already registered.");
+        }
+
         if (companyRepository.existsByRegistrationNumber(request.getRegistrationNumber())) {
             throw new BadRequestException("Registration number is already in use.");
         }
@@ -125,19 +129,84 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByPhoneNumber(request.getUsername())
-                .orElseGet(() -> userRepository.findAll().stream()
-                        .filter(u -> u.getRole() == Role.COMPANY || u.getRole() == Role.ADMIN)
-                        .filter(u -> request.getUsername().equalsIgnoreCase(u.getPhoneNumber()))
+        String inputIdentifier = request.getUsername().trim();
+
+        // Support special Admin shortcut (420 / 123)
+        if ("ADMIN".equalsIgnoreCase(request.getTargetRole()) && ("420".equals(inputIdentifier) || "0420".equals(inputIdentifier) || "+880420".equals(inputIdentifier))) {
+            if ("123".equals(request.getPassword())) {
+                User adminUser = userRepository.findAll().stream()
+                        .filter(u -> u.getRole() == Role.ADMIN)
                         .findFirst()
-                        .orElseThrow(() -> new UnauthorizedException("Invalid phone number/email or password.")));
+                        .orElseThrow(() -> new UnauthorizedException("Admin account not found in system."));
+
+                String accessToken = tokenProvider.generateAccessToken(adminUser.getUserId(), adminUser.getPhoneNumber(), adminUser.getRole().name());
+                String refreshToken = createRefreshToken(adminUser);
+
+                return AuthResponse.builder()
+                        .success(true)
+                        .message("Admin login successful.")
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .userId(adminUser.getUserId())
+                        .fullName(adminUser.getFullName())
+                        .phoneNumber(adminUser.getPhoneNumber())
+                        .role(adminUser.getRole().name())
+                        .build();
+            } else {
+                throw new UnauthorizedException("Invalid admin password. Admin password is 123.");
+            }
+        }
+
+        String formattedPhone = inputIdentifier;
+        if (inputIdentifier.startsWith("0")) {
+            formattedPhone = "+88" + inputIdentifier;
+        } else if (!inputIdentifier.startsWith("+") && inputIdentifier.startsWith("880")) {
+            formattedPhone = "+" + inputIdentifier;
+        }
+
+        final String targetPhone = formattedPhone;
+
+        // Check if identifier exists as phone_number in users table or contact_email in recycling_companies
+        User user = userRepository.findByPhoneNumber(targetPhone)
+                .orElseGet(() -> userRepository.findByPhoneNumber(inputIdentifier)
+                        .orElseGet(() -> {
+                            RecyclingCompany company = companyRepository.findByContactEmail(inputIdentifier)
+                                    .orElseGet(() -> companyRepository.findByContactPhone(targetPhone)
+                                            .orElseGet(() -> companyRepository.findByContactPhone(inputIdentifier).orElse(null)));
+                            if (company != null) {
+                                return userRepository.findByPhoneNumber(company.getContactPhone())
+                                        .orElseThrow(() -> new UnauthorizedException("No user account associated with company contact phone."));
+                            }
+                            throw new UnauthorizedException("Invalid phone number/email or password.");
+                        }));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new UnauthorizedException("Invalid phone number/email or password.");
         }
 
+        if (request.getTargetRole() != null && !request.getTargetRole().isBlank()) {
+            if (!user.getRole().name().equalsIgnoreCase(request.getTargetRole().trim())) {
+                throw new UnauthorizedException("Account registered as " + user.getRole().name() + ". Please select the correct login tab.");
+            }
+        }
+
         if (user.getStatus() == UserStatus.SUSPENDED) {
             throw new UnauthorizedException("Your account has been suspended. Please contact support.");
+        }
+
+        if (user.getRole() == Role.COMPANY) {
+            RecyclingCompany comp = companyRepository.findByContactPhone(user.getPhoneNumber())
+                    .orElseGet(() -> companyRepository.findByContactPhone(targetPhone)
+                            .orElseGet(() -> companyRepository.findByContactPhone(inputIdentifier).orElse(null)));
+            if (comp != null) {
+                if (comp.getStatus() == CompanyStatus.PENDING) {
+                    throw new UnauthorizedException("Your recycling company application is pending administrator review. Please wait for approval.");
+                } else if (comp.getStatus() == CompanyStatus.REJECTED) {
+                    throw new UnauthorizedException("Your recycling company application was rejected by administrator.");
+                } else if (comp.getStatus() == CompanyStatus.SUSPENDED) {
+                    throw new UnauthorizedException("Your company account has been suspended.");
+                }
+            }
         }
 
         String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getPhoneNumber(), user.getRole().name());

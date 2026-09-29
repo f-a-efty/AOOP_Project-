@@ -1,129 +1,793 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
 
-class AdminDashboardTab extends StatefulWidget {
-  const AdminDashboardTab({super.key});
+class AdminDashboardTab extends ConsumerStatefulWidget {
+  final void Function(int index)? onNavigateToTab;
+
+  const AdminDashboardTab({super.key, this.onNavigateToTab});
 
   @override
-  State<AdminDashboardTab> createState() => _AdminDashboardTabState();
+  ConsumerState<AdminDashboardTab> createState() => _AdminDashboardTabState();
 }
 
-class _AdminDashboardTabState extends State<AdminDashboardTab> {
-  String _selectedRange = '30d';
+class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
+  bool _isLoading = false;
+  bool _isAiLoading = false;
+  Map<String, dynamic> _metrics = {};
+  List<dynamic> _pendingCompanies = [];
+  Map<String, dynamic>? _aiPrediction;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboard();
+    _fetchAiPrediction();
+  }
+
+  Future<void> _fetchDashboard() async {
+    setState(() => _isLoading = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final metricsFuture = api.getAdminMetrics();
+      final pendingFuture = api.getPendingCompanies().catchError((_) => <dynamic>[]);
+
+      final results = await Future.wait([metricsFuture, pendingFuture]);
+
+      if (mounted) {
+        setState(() {
+          _metrics = results[0] as Map<String, dynamic>;
+          _pendingCompanies = results[1] as List<dynamic>;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchAiPrediction() async {
+    setState(() => _isAiLoading = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final prediction = await api.getEnvironmentalPrediction();
+      if (mounted) {
+        setState(() {
+          _aiPrediction = prediction;
+          _isAiLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isAiLoading = false);
+    }
+  }
+
+  Future<void> _approveCompany(int companyId, String name) async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.approveCompany(companyId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Approved $name! Enterprise is now active.'),
+            backgroundColor: const Color(0xFF2E6027),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      _fetchDashboard();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Approval failed: $e'),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectCompany(int companyId, String name) async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.rejectCompany(companyId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rejected partnership application for $name.'),
+            backgroundColor: AppTheme.warningAmber,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      _fetchDashboard();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rejection failed: $e'),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('Good morning, Admin', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
-              CircleAvatar(backgroundColor: AppTheme.subtle, child: Icon(Icons.notifications_rounded, color: AppTheme.primary)),
-            ],
-          ),
-          const SizedBox(height: 20),
+    final registeredUsers = _metrics['registeredUsers']?.toString() ?? '...';
+    final totalPlastic = _metrics['totalPlasticKg']?.toString() ?? '219.50';
+    final inBooths = _metrics['totalPlasticInBoothsKg']?.toString() ?? '219.50';
+    final deposited = _metrics['totalPlasticDepositedKg']?.toString() ?? '0.00';
+    final collectedByCompanies = _metrics['totalPlasticCollectedByCompaniesKg']?.toString() ?? '0.00';
+    final activeBooths = _metrics['activeBooths']?.toString() ?? '6';
+    final pendingApprovalsCount = _pendingCompanies.length;
 
-          // Swipeable / Grid Metrics
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.4,
-            children: [
-              _buildMetricTile('Registered Users', '1,248', '+12% this month', Icons.people_alt_rounded, AppTheme.primary),
-              _buildMetricTile('Plastic Collected', '4,892 kg', '100% sorted PET', Icons.recycling_rounded, AppTheme.accent),
-              _buildMetricTile('Tokens Issued', '489,200', '100 Tokens / kg', Icons.stars_rounded, AppTheme.warningAmber),
-              _buildMetricTile('Cashback Paid', '৳122,300', 'Direct to bKash', Icons.account_balance_wallet_rounded, AppTheme.skyBlue),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Chart Segment Selector
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Plastic Collection Trend', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Row(
-                children: ['7d', '30d', '6m', '1y'].map((range) {
-                  final isSel = _selectedRange == range;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedRange = range),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      margin: const EdgeInsets.only(left: 4),
-                      decoration: BoxDecoration(
-                        color: isSel ? AppTheme.primary : AppTheme.subtle,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(range.toUpperCase(), style: TextStyle(fontSize: 12, color: isSel ? Colors.white : AppTheme.muted, fontWeight: FontWeight.bold)),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Chart Container
-          Container(
-            height: 140,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
-            child: const Center(
-              child: Text('📈 Collection Analytics Chart (fl_chart visualization)', style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600)),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Recent Activity Feed
-          const Text('Recent Platform Activity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          _buildActivityItem('New Company Registration', 'Bengal Eco Solutions submitted application', '10 mins ago'),
-          _buildActivityItem('Pickup Completed', 'REQ-DH-8010 completed by ABC Recycling (98.5 kg)', '45 mins ago'),
-          _buildActivityItem('Cashback Withdrawn', 'User Rakibul Islam withdrew 400 Tokens (৳100 BDT)', '2 hours ago'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricTile(String title, String val, String sub, IconData icon, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.wait([_fetchDashboard(), _fetchAiPrediction()]);
+      },
+      color: AppTheme.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 96.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Top Bar
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(title, style: const TextStyle(fontSize: 11, color: AppTheme.muted, fontWeight: FontWeight.w600)),
-                Icon(icon, color: color, size: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('System Dashboard', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                      SizedBox(height: 2),
+                      Text(
+                        'Real-time platform overview & environmental impact',
+                        style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded, color: AppTheme.primary),
+                  onPressed: () {
+                    _fetchDashboard();
+                    _fetchAiPrediction();
+                  },
+                  tooltip: 'Reload stats',
+                ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(sub, style: const TextStyle(fontSize: 10, color: AppTheme.muted)),
+            const SizedBox(height: 18),
+
+            // Symmetrical 2x2 Grid Metrics
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.45,
+              children: [
+                _buildMetricTile('Registered Users', registeredUsers, 'Live in MySQL DB', Icons.people_alt_rounded, AppTheme.primary, null),
+                _buildMetricTile('Total Plastic Collected', '$totalPlastic kg', '100% sorted PET/HDPE', Icons.recycling_rounded, AppTheme.accent, null),
+                _buildMetricTile('Active Booths', '$activeBooths Booths', 'Online IoT sensors', Icons.store_mall_directory_rounded, AppTheme.skyBlue, null),
+                _buildMetricTile(
+                  'Pending Approvals',
+                  '$pendingApprovalsCount Companies',
+                  pendingApprovalsCount > 0 ? 'Action Required • Tap here' : 'All caught up',
+                  Icons.hourglass_top_rounded,
+                  AppTheme.warningAmber,
+                  () => widget.onNavigateToTab?.call(2),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // --- Total Plastic Collected Breakdown ---
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.18)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.06),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(18.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.analytics_rounded, color: AppTheme.primary, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Platform Plastic Data Flow',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textDark),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.subtle,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('Live Sync', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPlasticStatItem('In Smart Dustbins', '$inBooths kg', Icons.delete_sweep_rounded, const Color(0xFF0284C7)),
+                      ),
+                      Container(width: 1, height: 42, color: const Color(0xFFE2E8F0)),
+                      Expanded(
+                        child: _buildPlasticStatItem('Citizen Deposits', '$deposited kg', Icons.person_pin_rounded, const Color(0xFF16A34A)),
+                      ),
+                      Container(width: 1, height: 42, color: const Color(0xFFE2E8F0)),
+                      Expanded(
+                        child: _buildPlasticStatItem('Recycler Pickups', '$collectedByCompanies kg', Icons.local_shipping_rounded, const Color(0xFFD97706)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // --- Pending Recycler Approvals Banner ---
+            if (pendingApprovalsCount > 0) ...[
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 18),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Pending Recycler Registrations ($pendingApprovalsCount)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF92400E)),
+                            ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: () => widget.onNavigateToTab?.call(2),
+                          child: const Text('View All', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ..._pendingCompanies.take(2).map((comp) {
+                      final companyId = int.tryParse(comp['companyId']?.toString() ?? '0') ?? 0;
+                      final name = comp['companyName']?.toString() ?? 'Unnamed';
+                      final phone = comp['contactPhone']?.toString() ?? 'N/A';
+                      final regNum = comp['registrationNumber']?.toString() ?? 'N/A';
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            const SizedBox(height: 4),
+                            Text('Reg: $regNum • Phone: $phone', style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => _rejectCompany(companyId, name),
+                                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorRed),
+                                    child: const Text('Reject'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () => _approveCompany(companyId, name),
+                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                                    child: const Text('Approve'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // =================================================================
+            // GEMINI AI ENVIRONMENTAL IMPACT PREDICTOR
+            // =================================================================
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.22),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Clean Header with Overflow Protection
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)]),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'AI Environmental Impact Forecast',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Ecological Prediction based on $totalPlastic kg Plastic' +
+                                        (_aiPrediction?['analyzedAt'] != null ? ' • ${_aiPrediction!['analyzedAt']}' : ''),
+                                    style: const TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF34D399),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              _aiPrediction?['isLiveAi'] == true ? 'Live Gemini AI' : 'Gemini AI',
+                              style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Prediction Metrics 4-Grid (CO2, Oil, Energy, Landfill)
+                  if (_aiPrediction != null) ...[
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 1.5,
+                      children: [
+                        _buildAiImpactCard(
+                          'CO2 Avoided',
+                          '${_aiPrediction!['co2AvoidedKg'] ?? '329.25'} kg',
+                          'Emissions Prevented',
+                          Icons.cloud_off_rounded,
+                          const Color(0xFF34D399),
+                        ),
+                        _buildAiImpactCard(
+                          'Crude Oil Saved',
+                          '${_aiPrediction!['crudeOilSavedLiters'] ?? '548.75'} L',
+                          'Fossil Resource Conserved',
+                          Icons.oil_barrel_rounded,
+                          const Color(0xFFFBBF24),
+                        ),
+                        _buildAiImpactCard(
+                          'Clean Energy',
+                          '${_aiPrediction!['energySavedKwh'] ?? '1266.52'} kWh',
+                          'Grid Power Conserved',
+                          Icons.bolt_rounded,
+                          const Color(0xFF60A5FA),
+                        ),
+                        _buildAiImpactCard(
+                          'Landfill Saved',
+                          '${_aiPrediction!['landfillSpaceSavedM3'] ?? '1.25'} m³',
+                          'Landfill Volume Diverted',
+                          Icons.landscape_rounded,
+                          const Color(0xFFA78BFA),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Executive Summary
+                    if (_aiPrediction!['summary'] != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: Text(
+                          _aiPrediction!['summary']?.toString() ?? '',
+                          style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 12.5, height: 1.45),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Dhaka Drainage & Canal Waterlogging Impact
+                    if (_aiPrediction!['drainageAndCanalBenefit'] != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0369A1).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                Icon(Icons.water_drop_rounded, color: Color(0xFF38BDF8), size: 16),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Dhaka Urban Drainage & River Preservation',
+                                    style: TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _aiPrediction!['drainageAndCanalBenefit']?.toString() ?? '',
+                              style: const TextStyle(color: Color(0xFFE0F2FE), fontSize: 12, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Forecast Milestones
+                    if (_aiPrediction!['sixMonthForecast'] != null || _aiPrediction!['oneYearForecast'] != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Predictive Forecast Trajectory', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 8),
+                            if (_aiPrediction!['sixMonthForecast'] != null) ...[
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.timeline_rounded, color: Color(0xFFF43F5E), size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '6 Months: ${_aiPrediction!['sixMonthForecast']}',
+                                      style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, height: 1.35),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            if (_aiPrediction!['oneYearForecast'] != null) ...[
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.rocket_launch_rounded, color: Color(0xFF8B5CF6), size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '1 Year: ${_aiPrediction!['oneYearForecast']}',
+                                      style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, height: 1.35),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // AI Strategic Recommendations
+                    if (_aiPrediction!['recommendations'] is List) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF059669).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                Icon(Icons.lightbulb_rounded, color: Color(0xFF34D399), size: 16),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Gemini Actionable Recommendations',
+                                    style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...(_aiPrediction!['recommendations'] as List).map((rec) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('• ', style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold)),
+                                  Expanded(child: Text(rec.toString(), style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 12, height: 1.3))),
+                                ],
+                              ),
+                            )),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // Refresh AI Prediction Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      onPressed: _isAiLoading ? null : () => _fetchAiPrediction(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8B5CF6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: _isAiLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: Text(
+                        _isAiLoading ? 'Analyzing Environmental Impact...' : 'Refresh AI Analysis',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActivityItem(String title, String desc, String time) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: const CircleAvatar(backgroundColor: AppTheme.subtle, child: Icon(Icons.bolt_rounded, color: AppTheme.primary)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text(desc, style: const TextStyle(fontSize: 12)),
-        trailing: Text(time, style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
+  Widget _buildPlasticStatItem(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textDark)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 10.5, color: AppTheme.muted), textAlign: TextAlign.center),
+      ],
+    );
+  }
+
+  Widget _buildAiImpactCard(String title, String value, String subtext, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(icon, color: color, size: 16),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(subtext, style: const TextStyle(color: Color(0xFF64748B), fontSize: 9.5), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile(String title, String value, String subtext, IconData icon, Color color, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: onTap != null ? Border.all(color: color.withValues(alpha: 0.5), width: 1.5) : null,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+                    child: Icon(icon, color: color, size: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtext,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: onTap != null ? color : AppTheme.muted,
+                  fontWeight: onTap != null ? FontWeight.bold : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

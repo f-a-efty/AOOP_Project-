@@ -173,8 +173,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
     title VARCHAR(150) NOT NULL,
     type VARCHAR(50) NOT NULL,
     description TEXT,
-    start_date TIMESTAMP NOT NULL,
-    end_date TIMESTAMP NOT NULL,
+    start_date DATETIME DEFAULT NULL,
+    end_date DATETIME DEFAULT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

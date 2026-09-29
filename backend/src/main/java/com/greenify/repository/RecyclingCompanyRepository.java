@@ -13,9 +13,13 @@ public interface RecyclingCompanyRepository extends JpaRepository<RecyclingCompa
 
     Optional<RecyclingCompany> findByContactEmail(String email);
 
+    Optional<RecyclingCompany> findByContactPhone(String phone);
+
     Optional<RecyclingCompany> findByRegistrationNumber(String regNum);
 
     boolean existsByContactEmail(String email);
+
+    boolean existsByContactPhone(String phone);
 
     boolean existsByRegistrationNumber(String regNum);
 

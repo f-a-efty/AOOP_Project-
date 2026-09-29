@@ -2,10 +2,12 @@ package com.greenify.controller;
 
 import com.greenify.entity.Collection;
 import com.greenify.entity.PickupRequest;
+import com.greenify.entity.RecyclingCompany;
 import com.greenify.entity.SmartBooth;
 import com.greenify.entity.Vehicle;
 import com.greenify.repository.CollectionRepository;
 import com.greenify.repository.PickupRequestRepository;
+import com.greenify.repository.RecyclingCompanyRepository;
 import com.greenify.repository.SmartBoothRepository;
 import com.greenify.repository.VehicleRepository;
 import com.greenify.security.UserPrincipal;
@@ -30,12 +32,23 @@ public class CompanyController {
     private final PickupRequestRepository pickupRequestRepository;
     private final VehicleRepository vehicleRepository;
     private final CollectionRepository collectionRepository;
+    private final RecyclingCompanyRepository companyRepository;
     private final PickupService pickupService;
+
+    private Long getCompanyId(UserPrincipal principal) {
+        if (principal == null) return 1L;
+        return companyRepository.findByContactPhone(principal.getUsername())
+                .map(RecyclingCompany::getCompanyId)
+                .orElse(1L);
+    }
 
     @GetMapping("/dashboard")
     public ResponseEntity<?> getCompanyDashboard(@AuthenticationPrincipal UserPrincipal principal) {
-        Long companyId = 1L; // Dynamic mapping for authenticated company
+        Long companyId = getCompanyId(principal);
         List<SmartBooth> booths = boothRepository.findByCompanyCompanyId(companyId);
+        if (booths.isEmpty()) {
+            booths = boothRepository.findAll();
+        }
         long pickupRequiredCount = pickupRequestRepository.countPendingPickupsForCompany(companyId);
         BigDecimal totalCollectedKg = collectionRepository.getTotalCollectedKgByCompany(companyId);
 
@@ -50,15 +63,27 @@ public class CompanyController {
 
     @GetMapping("/booths")
     public ResponseEntity<List<SmartBooth>> getAssignedBooths(@AuthenticationPrincipal UserPrincipal principal) {
-        Long companyId = 1L;
-        return ResponseEntity.ok(boothRepository.findByCompanyCompanyId(companyId));
+        Long companyId = getCompanyId(principal);
+        List<SmartBooth> booths = boothRepository.findByCompanyCompanyId(companyId);
+        if (booths.isEmpty()) {
+            booths = boothRepository.findAll();
+        }
+        return ResponseEntity.ok(booths);
+    }
+
+    @PostMapping("/booths/{boothId}/dispatch")
+    public ResponseEntity<?> dispatchBooth(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long boothId) {
+        Long companyId = getCompanyId(principal);
+        return ResponseEntity.ok(pickupService.dispatchAndCollectBooth(companyId, boothId));
     }
 
     @GetMapping("/pickup-requests")
     public ResponseEntity<List<PickupRequest>> getPickupRequests(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status) {
-        Long companyId = 1L;
+        Long companyId = getCompanyId(principal);
         return ResponseEntity.ok(pickupService.getCompanyPickupRequests(companyId, status));
     }
 
@@ -85,7 +110,7 @@ public class CompanyController {
 
     @GetMapping("/vehicles")
     public ResponseEntity<List<Vehicle>> getVehicles(@AuthenticationPrincipal UserPrincipal principal) {
-        Long companyId = 1L;
+        Long companyId = getCompanyId(principal);
         return ResponseEntity.ok(vehicleRepository.findByCompanyCompanyId(companyId));
     }
 
@@ -93,14 +118,14 @@ public class CompanyController {
     public ResponseEntity<Vehicle> createVehicle(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody Vehicle vehicle) {
-        Long companyId = 1L;
+        Long companyId = getCompanyId(principal);
         vehicle.setStatus("Available");
         return ResponseEntity.ok(vehicleRepository.save(vehicle));
     }
 
     @GetMapping("/collections")
     public ResponseEntity<List<Collection>> getCollections(@AuthenticationPrincipal UserPrincipal principal) {
-        Long companyId = 1L;
+        Long companyId = getCompanyId(principal);
         return ResponseEntity.ok(collectionRepository.findByCompanyCompanyIdOrderByCollectedAtDesc(companyId));
     }
 }

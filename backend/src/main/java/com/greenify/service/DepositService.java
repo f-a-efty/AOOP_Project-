@@ -199,4 +199,110 @@ public class DepositService {
             log.info("Auto-generated pickup request {} for Booth {} (Priority: {})", requestCode, booth.getBoothCode(), priority);
         }
     }
+
+    @Transactional
+    public PlasticDeposit directSimulatedDeposit(Long boothId, Long userId, BigDecimal weightKg, String plasticType) {
+        User user = (userId != null)
+                ? userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId))
+                : userRepository.findAll().stream().filter(u -> u.getRole() == com.greenify.domain.enums.Role.USER).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("No citizen user found in system."));
+
+        SmartBooth booth = boothRepository.findByIdWithLock(boothId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booth not found: " + boothId));
+
+        String sessionId = "SIM-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        DepositSession session = DepositSession.builder()
+                .sessionId(sessionId)
+                .user(user)
+                .booth(booth)
+                .qrTokenHash("SIMULATED_TOKEN")
+                .expiresAt(LocalDateTime.now().plusHours(1))
+                .status("COMPLETED")
+                .build();
+        session = sessionRepository.save(session);
+
+        int tokensEarned = economicsService.calculateTokensEarned(weightKg);
+
+        BigDecimal newBoothWeight = booth.getCurrentWeightKg().add(weightKg);
+        booth.setCurrentWeightKg(newBoothWeight);
+
+        BigDecimal fillPct = newBoothWeight.divide(booth.getCapacityKg(), 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+        String newStatus = "Available";
+        if (fillPct.compareTo(BigDecimal.valueOf(100)) >= 0) {
+            newStatus = "Full";
+        } else if (fillPct.compareTo(BigDecimal.valueOf(almostFullThresholdPct)) >= 0) {
+            newStatus = "Almost Full";
+        }
+        booth.setBoothStatus(newStatus);
+        boothRepository.save(booth);
+
+        PlasticDeposit deposit = PlasticDeposit.builder()
+                .user(user)
+                .booth(booth)
+                .session(session)
+                .plasticWeightKg(weightKg)
+                .plasticType(plasticType != null ? plasticType : "PET/Mix")
+                .tokensEarned(tokensEarned)
+                .rateSnapshot(economicsService.getTokensPerKg())
+                .build();
+        deposit = depositRepository.save(deposit);
+
+        int newBalance = user.getTotalTokens() + tokensEarned;
+        user.setTotalTokens(newBalance);
+        updateUserLoyaltyTier(user);
+        userRepository.save(user);
+
+        WalletTransaction tx = WalletTransaction.builder()
+                .user(user)
+                .transactionType(TxType.DEPOSIT_CREDIT.getDisplayName())
+                .tokensDelta(tokensEarned)
+                .cashDelta(BigDecimal.ZERO)
+                .balanceAfterTokens(newBalance)
+                .status("Completed")
+                .build();
+        transactionRepository.save(tx);
+
+        if (("Almost Full".equalsIgnoreCase(newStatus) || "Full".equalsIgnoreCase(newStatus)) && booth.getCompany() != null) {
+            triggerAutomatedPickupRequest(booth, newStatus);
+        }
+
+        log.info("Direct simulator deposit processed: {} kg at Booth {} for User {}.", weightKg, booth.getBoothCode(), user.getFullName());
+        return deposit;
+    }
+
+    @Transactional
+    public SmartBooth setBoothFillPercentage(Long boothId, double fillPercentage) {
+        SmartBooth booth = boothRepository.findByIdWithLock(boothId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booth not found: " + boothId));
+
+        double clampedPct = Math.max(0.0, Math.min(100.0, fillPercentage));
+        BigDecimal capacity = booth.getCapacityKg() != null ? booth.getCapacityKg() : BigDecimal.valueOf(100.0);
+        BigDecimal newWeight = capacity.multiply(BigDecimal.valueOf(clampedPct / 100.0)).setScale(2, RoundingMode.HALF_UP);
+
+        booth.setCurrentWeightKg(newWeight);
+        String newStatus = "Available";
+        if (clampedPct >= 100.0) {
+            newStatus = "Full";
+        } else if (clampedPct >= 80.0) {
+            newStatus = "Almost Full";
+        }
+        booth.setBoothStatus(newStatus);
+        SmartBooth saved = boothRepository.save(booth);
+
+        if (clampedPct >= 80.0 && booth.getCompany() != null) {
+            triggerAutomatedPickupRequest(booth, newStatus);
+        }
+        log.info("Simulator set booth {} fill to {}% ({} kg). Status: {}", booth.getBoothCode(), clampedPct, newWeight, newStatus);
+        return saved;
+    }
+
+    @Transactional
+    public SmartBooth emptyBooth(Long boothId) {
+        SmartBooth booth = boothRepository.findByIdWithLock(boothId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booth not found: " + boothId));
+
+        booth.setCurrentWeightKg(BigDecimal.ZERO);
+        booth.setBoothStatus("Available");
+        return boothRepository.save(booth);
+    }
 }
