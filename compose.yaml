@@ -1,0 +1,6 @@
+services:
+  greenifyaoop:
+    image: greenifyaoop
+    build:
+      context: .
+      dockerfile: ./Dockerfile

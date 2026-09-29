@@ -1,0 +1,34 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:greenify_test_db;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+
+jwt:
+  secret: greenify_super_secret_jwt_signing_key_must_be_at_least_32_bytes_long_for_hs256_security_spec_2026
+  access-token-expiration-ms: 900000
+  refresh-token-expiration-ms: 2592000000
+
+otp:
+  test-mode: true
+  fixed-code: "123456"
+  provider: mock
+  expiry-minutes: 5
+
+payout:
+  provider: mock
+
+economics:
+  tokens-per-kg: 100
+  tokens-per-taka: 4
+  min-withdrawal-taka: 100
+  almost-full-threshold-pct: 80
+  co2-kg-per-plastic-kg: 1.5
+  qr-ttl-seconds: 60
