@@ -1,67 +1,72 @@
-# GREENIFY: REST API ENDPOINT SPECIFICATION (`/api/v1`)
+# Greenify PHP API (`/api/v1`)
 
-All API endpoints return standard JSON responses and error envelopes. OpenAPI Swagger UI documentation is live at `/api/v1/swagger-ui.html`.
+Base URL: `http://127.0.0.1:8000/api/v1`. Responses are JSON. Protected routes require `Authorization: Bearer <accessToken>`.
 
----
+## Health
 
-## 1. Authentication (`/api/v1/auth`)
+- `GET /health`: returns `200` when MySQL is reachable, or `503` when it is not.
 
-### `POST /auth/otp/send`
-- **Request Body**: `{ "phoneNumber": "+8801711111111", "purpose": "REGISTER" }`
-- **Response**: `{ "success": true, "message": "OTP verification code dispatched.", "testCode": "123456" }`
+## Authentication
 
-### `POST /auth/otp/verify`
-- **Request Body**: `{ "phoneNumber": "+8801711111111", "code": "123456", "purpose": "REGISTER" }`
-- **Response**: `{ "verified": true, "resetToken": "uuid-token" }`
+- `POST /auth/otp/send`: `{ "phoneNumber": "+8801711111111", "purpose": "REGISTER" }`. Development OTP is `123456`.
+- `POST /auth/otp/verify`: `{ "phoneNumber": "+8801711111111", "code": "123456", "purpose": "REGISTER" }`.
+- `POST /auth/register/user`: requires `fullName`, `phoneNumber`, `password`, `confirmPassword`, and `otpCode`; returns access and refresh tokens.
+- `POST /auth/register/company`: creates a company account pending admin approval.
+- `POST /auth/login`: `{ "username": "+8801711111111", "password": "..." }`.
+- `POST /auth/refresh`: `{ "refreshToken": "..." }`.
 
-### `POST /auth/register/user`
-- **Request Body**: `{ "fullName": "Rakibul Islam", "phoneNumber": "+8801711111111", "password": "Password123!", "confirmPassword": "Password123!", "otpCode": "123456" }`
-- **Response**: `AuthResponse` with JWT `accessToken` & `refreshToken`.
+## Citizen
 
-### `POST /auth/login`
-- **Request Body**: `{ "username": "+8801711111111", "password": "Password123!" }`
-- **Response**: `AuthResponse` with user details & JWT.
+- `GET /economics`: active public token reward, cashback conversion, and minimum withdrawal settings.
+- `GET /booths`: booths currently open for citizen deposits.
+- `GET /me/dashboard`: token balance, plastic total, deposit count, loyalty level, economics, and estimated CO2 offset.
+- `POST /me/deposit/manual`: `{ "weightKg": 1.5, "plasticType": "PET/Mix", "boothId": 1 }`.
+- `GET /me/transactions`: wallet ledger.
+- `POST /me/withdraw`: `{ "tokens": 400, "bkashNumber": "+8801711111111" }`; tokens must be a multiple of four and at least 400. `Idempotency-Key` is optional.
+- `GET /coupons`: currently available coupons.
+- `POST /coupons/{couponId}/redeem`: redeem a coupon using the authenticated account.
+- `GET /leaderboard`: active citizen accounts ranked by deposited plastic weight.
 
----
+## Recycling Company
 
-## 2. User App Endpoints (`/api/v1/me`)
+Company bearer token required. Registration remains pending until an administrator approves it.
 
-### `GET /me/dashboard`
-- **Headers**: `Authorization: Bearer <token>`
-- **Response**: User stats (plastic submitted, tokens, wallet balance ৳, loyalty level, CO2 offset).
+- `GET /company/dashboard`, `GET /company/booths`, `GET /company/collections`, `GET /company/alerts`.
+- `POST /company/booths/{id}/pickup-requests`: dispatches an assigned booth that has plastic ready for collection.
+- `GET /company/pickup-requests?status=Pending`.
+- `POST /company/pickup-requests/{id}/accept`.
+- `POST /company/pickup-requests/{id}/assign-vehicle`: `{ "vehicleId": 1 }`.
+- `POST /company/pickup-requests/{id}/complete`: `{ "plasticGrade": "PET 100% Sorted" }`.
+- `POST /company/alerts/{id}/read`.
+- `GET /company/vehicles`, `POST /company/vehicles`: requires `vehicleNumber`, `vehicleType`, `driverName`, and `driverPhone`.
 
-### `POST /me/withdraw`
-- **Headers**: `Authorization: Bearer <token>`, `Idempotency-Key: <unique-uuid>`
-- **Request Body**: `{ "tokens": 400, "bkashNumber": "+8801711111111" }`
-- **Response**: `WalletTransaction` with bKash transaction ID.
+## Administration
 
----
+Administrator bearer token required.
 
-## 3. Booth Hardware Endpoints (`/api/v1/booths`)
+- `GET /admin/dashboard/metrics`, `GET /admin/dashboard/activity`.
+- `GET /admin/users`, `GET /admin/users/{id}`, `POST /admin/users/{id}/toggle-status`.
+- `GET /admin/booths`, `POST /admin/booths`, `PUT /admin/booths/{id}`.
+- `GET /admin/collections`, `GET /admin/pickup-requests`.
+- `GET /admin/companies/pending`, `GET /admin/companies/active`, `POST /admin/companies/{id}/approve`, `POST /admin/companies/{id}/reject`.
+- `GET /admin/config/economics`, `POST /admin/config/economics`.
+- `GET /admin/coupons`, `POST /admin/coupons`, `PUT /admin/coupons/{id}`, `DELETE /admin/coupons/{id}` (archive).
+- `GET /admin/loyalty-levels`, `PUT /admin/loyalty-levels/{level}`.
+- `GET /admin/campaigns`, `POST /admin/campaigns`, `PUT /admin/campaigns/{id}`, `DELETE /admin/campaigns/{id}` (archive).
+- `GET /admin/reports/analytics?days=30`.
 
-### `POST /booths/{id}/qr`
-- **Response**: `{ "qrToken": "uuid-token", "ttlSeconds": 60 }`
+New booths are unassigned by default. Admin may assign or unassign them using `companyId` on booth create/update; only active, approved recycling companies are accepted. Recycler booth and dashboard routes return only booths explicitly assigned to the authenticated company.
 
-### `POST /booths/{id}/deposit-sessions/{sessionId}/weight`
-- **Request Body**: `{ "weightKg": 1.500, "plasticType": "PET/Mix" }`
-- **Response**: `PlasticDeposit` record with tokens earned.
+## Booth Hardware
 
----
+- `POST /booths/{id}/qr`: issue a short-lived QR token.
+- `POST /me/deposit-sessions`: `{ "boothId": 1, "qrToken": "..." }`; requires a citizen bearer token and consumes the QR token once.
+- `POST /booths/{id}/deposit-sessions/{sessionId}/weight`: `{ "weightKg": 1.5, "plasticType": "PET/Mix" }`; records the deposit, credits tokens, updates booth fill, and can create a pickup request.
 
-## 4. Recycling Company Endpoints (`/api/v1/company`)
-- `GET /company/dashboard`
-- `GET /company/booths`
-- `GET /company/pickup-requests`
-- `POST /company/pickup-requests/{id}/accept`
-- `POST /company/pickup-requests/{id}/assign-vehicle`
-- `POST /company/pickup-requests/{id}/complete`
-- `GET /company/collections`
+## Notes
 
----
-
-## 5. Admin Portal Endpoints (`/api/v1/admin`)
-- `GET /admin/dashboard/metrics`
-- `GET /admin/users`
-- `POST /admin/companies/{id}/approve`
-- `POST /admin/config/economics`
-- `GET /admin/audit-logs`
+- OTP is fixed to `123456` for development only.
+- Tokens are stored as SHA-256 hashes in `refresh_tokens`; passwords use PHP's `password_hash`.
+- bKash withdrawals are simulated and recorded in the wallet ledger; no live payment gateway is connected.
+- Admin and recycler views are connected to their database-backed routes.
+- Errors use `{ "success": false, "message": "..." }`.

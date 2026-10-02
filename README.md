@@ -4,12 +4,12 @@
 
 ---
 
-## Technical Architecture
+## Stack
 
-- **Backend**: Spring Boot 3.2.4 (Java 17/21), Spring Security 6, JWT Auth, Spring Data JPA, Flyway Migrations.
-- **Database**: MySQL 8.0 (InnoDB) strictly normalized to 3NF.
-- **Mobile Application**: Flutter (Material 3), Riverpod, GoRouter, Dio.
-- **Design Tokens**: Brand styling derived from `Logo/Greenify-01.svg` (`#2E6027` primary, `#6BBF3A` accent, soft `#F2F5F1` background).
+- **Mobile**: Flutter, Riverpod, GoRouter, Dio.
+- **API**: PHP 8.1+ with PDO.
+- **Database**: MySQL 8+ or MariaDB 10.4+.
+- **Design**: Brand styling from `Logo/Greenify-01.svg`.
 
 ---
 
@@ -17,34 +17,57 @@
 
 ```
 greenify/
-├── backend/              # Spring Boot REST API
-├── mobile/               # Flutter mobile application
-├── docs/                 # Documentation (PLAN.md, API.md, SQL_FEATURES.md, BKASH.md, ASSUMPTIONS.md)
-├── sql/                  # Standalone SQL lab scripts for DBMS Lab grading
-├── design/admin-prototype/# React admin prototype source reference
-├── Logo/                 # Original SVG & PNG logo brand assets
-├── docker-compose.yml    # Docker setup for MySQL & Backend
-└── README.md
+├── backend/public/       # PHP REST API
+├── database/             # MySQL schema, seed data, setup script
+├── mobile/               # Flutter application
+├── docs/                 # API and project documentation
+├── sql/                  # DBMS lab scripts
+└── Logo/                 # Brand assets
 ```
 
 ---
 
 ## Quick Start Guide
 
-### 1. Launching Database & Backend with Docker
-```bash
-docker compose up -d
-```
-Access points:
-- REST API Base: `http://localhost:8080/api/v1`
-- OpenAPI Swagger UI: `http://localhost:8080/api/v1/swagger-ui.html`
-- Smart Booth Scale Simulator: `http://localhost:8080/api/v1/sim`
+### 1. Start MySQL
 
-### 2. Running Flutter App
-```bash
-cd mobile
-flutter run
+Start MySQL or MariaDB. With XAMPP, start MySQL from the XAMPP Control Panel.
+
+For a fresh database, run this from **Command Prompt** at the project root:
+
+```cmd
+C:\xampp\mysql\bin\mysql.exe -u root < database\setup.sql
 ```
+
+The setup script creates `greenify_db`, then loads its schema and sample records. It does not drop an existing database.
+New booths start unassigned; an administrator assigns them to an approved recycler from Operations. Seed data assigns only the two sample booths with pickup requests.
+
+For an existing database, apply the QR-token and audit-table upgrade from PowerShell:
+
+```powershell
+Get-Content .\database\upgrade.sql | & 'C:\xampp\mysql\bin\mysql.exe' -u root greenify_db
+```
+
+### 2. Start the PHP API
+
+From the project root, run this in a terminal and leave it open:
+
+```cmd
+C:\xampp\php\php.exe -S 127.0.0.1:8000 backend\public\index.php
+```
+
+The API is available at `http://127.0.0.1:8000/api/v1`. Check `http://127.0.0.1:8000/api/v1/health` for database connectivity. By default the API uses MySQL at `127.0.0.1:3306`, database `greenify_db`, user `root`, and an empty password. Set `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, or `DB_PASS` before starting PHP to override these values.
+
+### 3. Run Flutter
+
+In another terminal:
+
+```cmd
+cd mobile
+flutter run -d chrome
+```
+
+The seeded admin development login is phone `+8801746995650`, password `GreenifyAdmin2026`. Change this password before deployment. New citizen accounts can be registered with the development OTP `123456`. For an Android emulator, use `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1`.
 
 ---
 
@@ -54,4 +77,5 @@ flutter run
 - **Cashback Rate**: 4 Tokens = ৳1.00 BDT paid to bKash (Effective ৳25.00/kg).
 - **Minimum Withdrawal**: ৳100.00 BDT (400 Tokens).
 - **Withdrawal Step**: Tokens must be a multiple of 4.
-- **OTP Test Mode**: Fixed code `123456` enabled for dev profile.
+- **OTP Test Mode**: Fixed code `123456`; do not use this mode in production.
+- **Payouts**: bKash withdrawals are recorded as simulated transactions; no live bKash gateway is configured.

@@ -8,10 +8,6 @@ import 'signup_screen.dart';
 import 'company_register_screen.dart';
 import 'forgot_password_screen.dart';
 
-// Admin hardcoded credentials
-const String _adminPhone = '01746995650';
-const String _adminPassword = '11111';
-
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -252,17 +248,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
-    // ── ADMIN: hardcoded check, no backend call ──
-    if (_selectedRole == 'ADMIN') {
-      if (phone == _adminPhone && password == _adminPassword) {
-        ref.read(userRoleProvider.notifier).state = 'ADMIN';
-      } else {
-        _showError('Invalid admin credentials.');
-      }
-      return;
-    }
-
-    // ── USER / COMPANY: call backend ──
     setState(() => _isLoading = true);
     try {
       // Normalize phone: strip leading 0, add +880 prefix if needed
@@ -276,14 +261,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final result = await _authService.login(normalizedPhone, password);
       final role = result['role'] as String?;
 
-      if (_selectedRole == 'USER' && role != 'USER') {
-        _showError(
-            'This account is not a citizen account. Please select the correct tab.');
-        return;
-      }
-      if (_selectedRole == 'COMPANY' && role != 'COMPANY') {
-        _showError(
-            'This account is not a company account. Please select the correct tab.');
+      if (role != _selectedRole) {
+        _showError('This account does not match the selected role.');
         return;
       }
 

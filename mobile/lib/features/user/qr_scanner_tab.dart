@@ -17,6 +17,11 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
   final _sessionController = TextEditingController();
   final _authService = AuthService();
   String _selectedPlasticType = 'PET Plastic Bottles';
+  List<Map<String, dynamic>> _booths = [];
+  int? _selectedBoothId;
+  int _tokensPerKg = 100;
+  int _tokensPerTaka = 4;
+  bool _loadingBooths = true;
   bool _isSubmitting = false;
 
   final List<String> _plasticTypes = [
@@ -28,6 +33,12 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadDepositOptions();
+  }
+
+  @override
   void dispose() {
     _weightController.dispose();
     _sessionController.dispose();
@@ -35,8 +46,39 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
   }
 
   double get _enteredWeight => double.tryParse(_weightController.text) ?? 0.0;
-  int get _calculatedTokens => (_enteredWeight * 100).round();
-  double get _calculatedTaka => _calculatedTokens / 4.0;
+  int get _calculatedTokens => (_enteredWeight * _tokensPerKg).floor();
+  double get _calculatedTaka => _calculatedTokens / _tokensPerTaka;
+
+  Future<void> _loadDepositOptions() async {
+    try {
+      final values = await Future.wait([
+        _authService.fetchBooths(),
+        _authService.fetchPublicEconomics(),
+      ]);
+      if (!mounted) return;
+      final boothRows = values[0] as List<dynamic>;
+      final economics = values[1] as Map<String, dynamic>;
+      setState(() {
+        _booths = boothRows
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .toList();
+        _selectedBoothId =
+            _booths.isEmpty ? null : (_booths.first['boothId'] as num).toInt();
+        _tokensPerKg = (economics['tokensPerKg'] as num?)?.toInt() ?? 100;
+        _tokensPerTaka = (economics['tokensPerTaka'] as num?)?.toInt() ?? 4;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Could not load available booths and reward rates.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingBooths = false);
+    }
+  }
 
   Future<void> _handleManualDeposit() async {
     final weight = _enteredWeight;
@@ -49,6 +91,12 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
       );
       return;
     }
+    if (_selectedBoothId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose an available booth first.')),
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     final token = ref.read(authTokenProvider);
@@ -58,6 +106,7 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
         token,
         weightKg: weight,
         plasticType: _selectedPlasticType,
+        boothId: _selectedBoothId,
       );
 
       // Trigger dashboard reload
@@ -205,6 +254,40 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
                     ],
                   ),
                   const SizedBox(height: 20),
+
+                  const Text('Collection booth',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  if (_loadingBooths)
+                    const LinearProgressIndicator(minHeight: 2)
+                  else if (_booths.isEmpty)
+                    const Text('No booths are currently accepting deposits.',
+                        style: TextStyle(color: AppTheme.errorRed))
+                  else
+                    DropdownButtonFormField<int>(
+                      value: _selectedBoothId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: _booths.map((booth) {
+                        final boothId = (booth['boothId'] as num).toInt();
+                        final code =
+                            booth['boothCode']?.toString() ?? 'Booth $boothId';
+                        final address =
+                            booth['locationAddress']?.toString() ?? '';
+                        return DropdownMenuItem(
+                          value: boothId,
+                          child: Text('$code · $address',
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (value) =>
+                          setState(() => _selectedBoothId = value),
+                    ),
+                  const SizedBox(height: 16),
 
                   // Plastic Type Selector
                   const Text('Plastic Category',

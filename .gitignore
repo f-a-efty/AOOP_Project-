@@ -18,14 +18,10 @@ mobile/*.iml
 mobile/pubspec.lock
 
 # ──────────────────────────────────────────────
-# Spring Boot / Maven
+# PHP
 # ──────────────────────────────────────────────
-backend/target/
-backend/.mvn/wrapper/maven-wrapper.jar
-backend/.classpath
-backend/.project
-backend/.settings/
 backend/*.log
+backend/config.local.php
 
 # ──────────────────────────────────────────────
 # IDE

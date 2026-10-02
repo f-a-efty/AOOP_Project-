@@ -7,9 +7,7 @@ This document details the exact SQL feature coverage implemented in Greenify's M
 ## 1. DML (Data Manipulation Language)
 - **CRUD Operations**: Performed across all entities (`users`, `recycling_companies`, `smart_booths`, `plastic_deposits`, `wallet_transactions`, `coupons`, `pickup_requests`, `vehicles`, `collections`).
 - **Location in Codebase**:
-  - Insert deposit: `PlasticDepositRepository`, `DepositService.java`
-  - Update booth status: `SmartBoothRepository`, `DepositService.java`
-  - Credit wallet: `UserRepository`, `WalletService.java`
+  - Insert deposits, update booth status, and credit the wallet: `backend/public/index.php`
 
 ---
 
@@ -28,7 +26,7 @@ INNER JOIN plastic_deposits d ON u.user_id = d.user_id
 GROUP BY u.user_id, u.full_name
 HAVING SUM(d.plastic_weight_kg) >= 50.000;
 ```
-- **Location in Codebase**: `sql/queries.sql` and `PlasticDepositRepository.java`.
+- **Location in Codebase**: `sql/queries.sql` and `backend/public/index.php`.
 
 ---
 
@@ -97,12 +95,8 @@ LEFT JOIN recycling_companies c ON b.company_id = c.company_id;
 ---
 
 ## 6. ACID Transactions & Row Locking
-- **Transaction Flow**: bKash Token Cashout with Payout Rollback.
-  - Step 1: Locks user row with `SELECT ... FOR UPDATE`.
-  - Step 2: Checks token balance against requested withdrawal.
-  - Step 3: Writes `Pending` ledger row and debits tokens.
-  - Step 4: Calls `PayoutGateway`. On failure, rolls back token debit and marks status `Failed`.
-- **Location in Codebase**: `WalletService.java`, `@Transactional` methods with `findByIdWithLock()`.
+- **Transaction Flow**: Token withdrawal, coupon redemption, and deposit credit use database transactions and lock balance rows with `SELECT ... FOR UPDATE`.
+- **Location in Codebase**: `backend/public/index.php`.
 
 ---
 

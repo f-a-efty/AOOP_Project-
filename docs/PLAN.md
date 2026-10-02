@@ -1,5 +1,7 @@
 
-# GREENIFY: SYSTEM IMPLEMENTATION PLAN
+# GREENIFY: ORIGINAL SYSTEM IMPLEMENTATION PLAN (HISTORICAL)
+
+This document describes the original Spring Boot design. The current PHP/MySQL setup and supported API are documented in [README.md](../README.md) and [API.md](API.md).
 
 ## 1. Executive Summary & Architecture Overview
 
@@ -7,7 +9,7 @@
 - **Citizens (Users)** who deposit recyclable plastic and earn rewards withdrawable via bKash.
 - **Smart Collection Booths** (simulated hardware nodes) that measure plastic weight and send telemetry data.
 - **Recycling Companies** that track booth fill status, manage vehicles, and collect accumulated plastic.
-- **System Administrators** who manage users, booths, company approvals, economics, coupons, and view analytics/audit logs.
+- **System Administrators** who manage users, booths, company approvals, economics, coupons, campaigns, and analytics.
 
 ### Tech Stack Blueprint
 ```
@@ -129,7 +131,7 @@ erDiagram
 - `GET/PUT /admin/config/economics` (Edit reward rates & cashback rates)
 - `GET/POST/PUT /admin/coupons`
 - `GET/POST/PUT /admin/campaigns`
-- `GET /admin/reports/export`, `GET /admin/audit-logs`, `GET /admin/search`
+- Admin reports, campaign, loyalty, booth, coupon, and company operations (see [API.md](API.md))
 
 ---
 
@@ -148,7 +150,7 @@ erDiagram
 - Role determined on login from JWT payload (`USER`, `COMPANY`, `ADMIN`).
 - **User Navigator:** Home Dashboard, QR Scanner, Wallet & bKash Withdraw, Coupons Store, Impact & Leaderboard, Profile.
 - **Company Navigator (Figma specification):** Home Dashboard, Smart Booths, Pickup Requests, Collection History, Alerts, Vehicles, Profile.
-- **Admin Navigator (Figma Make React Prototype translation):** Home, Users, Operations (Booths, Collections, Companies Queue), Finance (Rewards, Cashback Config, Coupons), More (Loyalty, Campaigns, Reports, Audit Logs, Settings).
+- **Admin Navigator:** Home, Users, Operations (Booths, Collections, Companies Queue), Finance (Rewards and Coupons), More (Loyalty, Campaigns, Reports).
 
 ---
 
@@ -189,7 +191,7 @@ To accommodate manual feature-by-feature git pushing by the user:
 
 6. **Phase 6 Branch (`feature/phase-6-flutter-admin-portal-and-docs`):**
    - Translation of React Admin Prototype into Flutter Admin Shell.
-   - Admin Home, User Detail/Actions, Operations (Booths, Collections, Company Approval Queue), Finance (Reward Rule Editor with Audit log modal, Cashback Config, Coupon Form), Campaigns, Audit Log Viewer, Global Search.
+   - Admin Home, User Detail/Actions, Operations (Booths, Collections, Company Approval Queue), Finance (Reward Rules and Coupons), Campaigns, and Reports.
    - SQL Lab Deliverables (`sql/schema.sql`, `sql/seed.sql`, `sql/views.sql`, `sql/queries.sql`, `sql/procedures.sql`, `docs/SQL_FEATURES.md`).
    - Comprehensive README & Docker Compose validation.
 

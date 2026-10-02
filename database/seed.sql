@@ -16,10 +16,9 @@ INSERT INTO loyalty_levels (level, min_kg, max_kg, benefits, badge) VALUES
 ('Nature Hero', 150.000, 300.000, 'VIP partner vouchers & eco-champion digital badge', 'leaf_gold'),
 ('Nature Guardian', 300.000, 99999.000, 'Priority customer support & invitation to annual eco summit', 'leaf_diamond');
 
--- Initial Users (Password: Password123! -> BCrypt hash)
--- BCrypt for 'Password123!' is $2a$10$7R7z64a/H50F2K4QyqU1y.lZ29qH1hC3c1d9a0b1c2d3e4f5g6h7
+-- Development admin password: GreenifyAdmin2026
 INSERT INTO users (full_name, phone_number, bkash_number, address, password_hash, total_tokens, loyalty_level, role, status) VALUES
-('System Administrator', '+8801746995650', '+8801746995650', 'Greenify HQ, Gulshan-2, Dhaka', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL56lkp.', 0, 'Nature Guardian', 'ADMIN', 'ACTIVE'),
+('System Administrator', '+8801746995650', '+8801746995650', 'Greenify HQ, Gulshan-2, Dhaka', '$2y$10$nUEABWngb6KAEqynhirMVu9hItoThgl55oKUy8GOKmg.uqFhv8yL6', 0, 'Nature Guardian', 'ADMIN', 'ACTIVE'),
 ('Rakibul Islam', '+8801711111111', '+8801711111111', 'House 42, Road 7, Dhanmondi, Dhaka', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', 450, 'Green Friend', 'USER', 'ACTIVE'),
 ('Tania Sultana', '+8801822222222', '+8801822222222', 'Block C, Section 10, Mirpur, Dhaka', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', 150, 'Eco Buddy', 'USER', 'ACTIVE'),
 ('ABC Recycling Manager', '+8801933333333', '+8801933333333', 'Tejgaon Industrial Area, Dhaka', '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQubh4a', 0, 'Eco Buddy', 'COMPANY', 'ACTIVE');
@@ -31,12 +30,12 @@ INSERT INTO recycling_companies (company_name, registration_number, permit_info,
 
 -- Smart Collection Booths in Dhaka
 INSERT INTO smart_booths (booth_code, company_id, location_address, latitude, longitude, capacity_kg, current_weight_kg, booth_status, sensor_status) VALUES
-('BTH-DH-001', 1, 'Dhanmondi Lake Park Entrance, Road 8, Dhaka', 23.74610000, 90.37420000, 100.000, 25.500, 'Available', 'Online'),
-('BTH-DH-002', 1, 'Mirpur 10 Bus Stand Roundabout, Dhaka', 23.80690000, 90.36870000, 100.000, 82.000, 'Almost Full', 'Online'),
-('BTH-DH-003', 1, 'Uttara Sector 3 Park, Road 4, Dhaka', 23.86900000, 90.39800000, 100.000, 100.000, 'Full', 'Online'),
-('BTH-DH-004', 1, 'Gulshan 2 DCC Market Plaza, Dhaka', 23.79480000, 90.41430000, 150.000, 12.000, 'Available', 'Online'),
-('BTH-DH-005', 1, 'Banani Chairman Bari Bus Stop, Dhaka', 23.79370000, 90.40470000, 100.000, 0.000, 'Empty', 'Online'),
-('BTH-DH-006', NULL, 'Mohammadpur Town Hall Market, Dhaka', 23.75880000, 90.36300000, 100.000, 0.000, 'Under Maintenance', 'Sensor Error');
+('B-Dh-1', NULL, 'Dhanmondi Lake Park Entrance, Road 8, Dhaka', 23.74610000, 90.37420000, 100.000, 25.500, 'Available', 'Online'),
+('B-Mir-10', 1, 'Mirpur 10 Bus Stand Roundabout, Dhaka', 23.80690000, 90.36870000, 100.000, 82.000, 'Almost Full', 'Online'),
+('B-Utr-1', 1, 'Uttara Sector 3 Park, Road 4, Dhaka', 23.86900000, 90.39800000, 100.000, 100.000, 'Full', 'Online'),
+('B-Gul-2', NULL, 'Gulshan 2 DCC Market Plaza, Dhaka', 23.79480000, 90.41430000, 150.000, 12.000, 'Available', 'Online'),
+('B-Ban-1', NULL, 'Banani Chairman Bari Bus Stop, Dhaka', 23.79370000, 90.40470000, 100.000, 0.000, 'Empty', 'Online'),
+('B-Moh-1', NULL, 'Mohammadpur Town Hall Market, Dhaka', 23.75880000, 90.36300000, 100.000, 0.000, 'Under Maintenance', 'Sensor Error');
 
 -- Vehicles
 INSERT INTO vehicles (company_id, vehicle_number, vehicle_type, driver_name, driver_phone, status) VALUES

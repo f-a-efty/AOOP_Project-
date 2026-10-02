@@ -13,11 +13,14 @@ class WalletCashoutTab extends ConsumerStatefulWidget {
 }
 
 class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
-  final _tokensController = TextEditingController(text: '100');
+  final _tokensController = TextEditingController(text: '400');
   final _bkashController = TextEditingController();
   final _authService = AuthService();
   double _calculatedTaka = 100.0;
+  int _tokensPerTaka = 4;
+  int _minimumWithdrawalTokens = 400;
   String? _errorMessage;
+  bool _tokensEdited = false;
   bool _isSubmitting = false;
   Map<String, dynamic>? _dashboardData;
   List<dynamic> _transactions = [];
@@ -45,7 +48,16 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
         setState(() {
           _dashboardData = dash;
           _transactions = txs;
-          if (_bkashController.text.isEmpty && dash['bkashNumber'] != null && dash['bkashNumber'].toString().isNotEmpty) {
+          _tokensPerTaka = (dash['tokensPerTaka'] as num?)?.toInt() ?? 4;
+          _minimumWithdrawalTokens =
+              (dash['minimumWithdrawalTokens'] as num?)?.toInt() ?? 400;
+          if (!_tokensEdited) {
+            _tokensController.text = _minimumWithdrawalTokens.toString();
+            _calculatedTaka = _minimumWithdrawalTokens / _tokensPerTaka;
+          }
+          if (_bkashController.text.isEmpty &&
+              dash['bkashNumber'] != null &&
+              dash['bkashNumber'].toString().isNotEmpty) {
             _bkashController.text = dash['bkashNumber'].toString();
           }
         });
@@ -56,12 +68,15 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
   void _onTokensChanged(String val) {
     final tokens = int.tryParse(val) ?? 0;
     final availableTokens = _dashboardData?['totalTokens'] as int? ?? 0;
+    _tokensEdited = true;
     setState(() {
-      _calculatedTaka = tokens / 4.0;
-      if (tokens < 100) {
-        _errorMessage = 'Minimum withdrawal is 100 tokens (৳25.00 BDT)';
+      _calculatedTaka = tokens / _tokensPerTaka;
+      if (tokens < _minimumWithdrawalTokens) {
+        _errorMessage =
+            'Minimum withdrawal is $_minimumWithdrawalTokens tokens';
       } else if (availableTokens > 0 && tokens > availableTokens) {
-        _errorMessage = 'Insufficient balance (You have $availableTokens tokens)';
+        _errorMessage =
+            'Insufficient balance (You have $availableTokens tokens)';
       } else {
         _errorMessage = null;
       }
@@ -72,9 +87,11 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
     final tokens = int.tryParse(_tokensController.text) ?? 0;
     final phone = _bkashController.text.trim();
 
-    if (tokens < 100) {
+    if (tokens < _minimumWithdrawalTokens) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Minimum withdrawal is 100 tokens (৳25.00 BDT).')),
+        SnackBar(
+            content: Text(
+                'Minimum withdrawal is $_minimumWithdrawalTokens tokens.')),
       );
       return;
     }
@@ -103,7 +120,8 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: const [
               Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
@@ -123,17 +141,21 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
         ),
       );
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? 'Withdrawal failed. Check your token balance.';
+      final msg = e.response?.data?['message'] ??
+          'Withdrawal failed. Check your token balance.';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red.shade700),
+          SnackBar(
+              content: Text(msg.toString()),
+              backgroundColor: Colors.red.shade700),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully simulated payout of ৳${_calculatedTaka.toStringAsFixed(2)} BDT to $phone!'),
+            content: Text(
+                'Successfully simulated payout of ৳${_calculatedTaka.toStringAsFixed(2)} BDT to $phone!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -150,7 +172,7 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
     final availableTokens = _dashboardData?['totalTokens'] ?? 0;
     final walletBalance = _dashboardData?['walletBalanceTaka'] != null
         ? (_dashboardData!['walletBalanceTaka'] as num).toDouble()
-        : (availableTokens / 4.0);
+        : (availableTokens / _tokensPerTaka);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -161,21 +183,29 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
           Card(
             color: AppTheme.subtle,
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 children: [
-                  const Text('Available Tokens Balance', style: TextStyle(color: AppTheme.muted)),
+                  const Text('Available Tokens Balance',
+                      style: TextStyle(color: AppTheme.muted)),
                   const SizedBox(height: 6),
                   Text(
                     '$availableTokens Tokens',
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                    style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primary),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Equivalent to ৳${walletBalance.toStringAsFixed(2)} BDT (4 Tokens = ৳1.00)',
-                    style: const TextStyle(color: AppTheme.primaryLight, fontWeight: FontWeight.w600, fontSize: 13),
+                    'Equivalent to ৳${walletBalance.toStringAsFixed(2)} BDT ($_tokensPerTaka Tokens = ৳1.00)',
+                    style: const TextStyle(
+                        color: AppTheme.primaryLight,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13),
                   ),
                 ],
               ),
@@ -184,17 +214,20 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
           const SizedBox(height: 24),
 
           // Cashout Form
-          const Text('Withdraw Straight to bKash', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('Withdraw Straight to bKash',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
 
-          const Text('Enter Token Amount (Min 100 tokens)', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text('Enter Token Amount (Min $_minimumWithdrawalTokens tokens)',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           TextField(
             controller: _tokensController,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               hintText: 'e.g. 100',
-              prefixIcon: const Icon(Icons.stars_rounded, color: AppTheme.accent),
+              prefixIcon:
+                  const Icon(Icons.stars_rounded, color: AppTheme.accent),
               errorText: _errorMessage,
             ),
             onChanged: _onTokensChanged,
@@ -216,10 +249,14 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Cashback Payout Amount:', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text('Cashback Payout Amount:',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                     Text(
                       '৳${liveTaka.toStringAsFixed(2)} BDT',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.primary),
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.primary),
                     ),
                   ],
                 ),
@@ -228,35 +265,46 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
           ),
           const SizedBox(height: 16),
 
-          const Text('Target bKash Account Number', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Target bKash Account Number',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           TextField(
             controller: _bkashController,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               hintText: '+88017XXXXXXXX',
-              prefixIcon: Icon(Icons.account_balance_wallet_rounded, color: Colors.pink),
+              prefixIcon: Icon(Icons.account_balance_wallet_rounded,
+                  color: Colors.pink),
             ),
           ),
           const SizedBox(height: 24),
 
           ElevatedButton(
-            onPressed: (_errorMessage == null && !_isSubmitting) ? _handleWithdrawal : null,
+            onPressed: (_errorMessage == null && !_isSubmitting)
+                ? _handleWithdrawal
+                : null,
             child: _isSubmitting
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                 : const Text('Withdraw Cash to bKash'),
           ),
           const SizedBox(height: 28),
 
           // Ledger History
-          const Text('Transaction History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('Transaction History',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           if (_transactions.isEmpty)
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Center(
-                  child: Text('No transactions yet. Deposit plastic to earn tokens!', style: TextStyle(color: AppTheme.muted)),
+                  child: Text(
+                      'No transactions yet. Deposit plastic to earn tokens!',
+                      style: TextStyle(color: AppTheme.muted)),
                 ),
               ),
             )
@@ -267,7 +315,9 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
                   : 'Recent';
               final type = tx['type'] ?? 'Transaction';
               final tokensDelta = tx['tokensDelta'] ?? 0;
-              final amountStr = tokensDelta >= 0 ? '+$tokensDelta Tokens' : '$tokensDelta Tokens';
+              final amountStr = tokensDelta >= 0
+                  ? '+$tokensDelta Tokens'
+                  : '$tokensDelta Tokens';
               final status = tx['status'] ?? 'Completed';
               final trxId = tx['bkashTrxId'] ?? tx['trxId'] ?? 'DEP-CREDIT';
 
@@ -278,7 +328,8 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
     );
   }
 
-  Widget _buildTxItem(String date, String title, String amount, String status, String trxId) {
+  Widget _buildTxItem(
+      String date, String title, String amount, String status, String trxId) {
     final isCredit = amount.startsWith('+');
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -298,7 +349,8 @@ class _WalletCashoutTabState extends ConsumerState<WalletCashoutTab> {
                 color: isCredit ? Colors.green.shade700 : Colors.red.shade700,
               ),
             ),
-            Text(status, style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+            Text(status,
+                style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
           ],
         ),
       ),

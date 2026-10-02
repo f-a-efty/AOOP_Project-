@@ -59,6 +59,16 @@ CREATE TABLE IF NOT EXISTS smart_booths (
     INDEX idx_booth_status (booth_status)
 );
 
+CREATE TABLE IF NOT EXISTS booth_qr_tokens (
+    token_hash CHAR(64) PRIMARY KEY,
+    booth_id BIGINT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_qr_token_booth FOREIGN KEY (booth_id) REFERENCES smart_booths(booth_id) ON DELETE CASCADE,
+    INDEX idx_qr_token_booth_expiry (booth_id, expires_at, consumed_at)
+);
+
 CREATE TABLE IF NOT EXISTS deposit_sessions (
     session_id VARCHAR(64) PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -229,16 +239,6 @@ CREATE TABLE IF NOT EXISTS otp_codes (
     consumed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_otp_phone (phone_number, purpose)
-);
-
-CREATE TABLE IF NOT EXISTS audit_logs (
-    log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    admin_id BIGINT NULL,
-    admin_email VARCHAR(100),
-    action VARCHAR(100) NOT NULL,
-    detail TEXT,
-    module VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Database View required for DBMS Lab submission
