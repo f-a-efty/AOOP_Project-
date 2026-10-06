@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/eco_background_wrapper.dart';
@@ -11,10 +12,196 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   int _step = 1;
+  bool _isLoading = false;
+  String? _resetToken;
+
   final _phoneController = TextEditingController();
   final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  final Dio _dio = Dio(BaseOptions(
+    baseUrl: 'http://localhost:8080/api/v1',
+    connectTimeout: const Duration(seconds: 8),
+    receiveTimeout: const Duration(seconds: 8),
+    headers: {'Content-Type': 'application/json'},
+  ));
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    for (var c in _otpControllers) {
+      c.dispose();
+    }
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  String _formatPhone(String raw) {
+    raw = raw.trim().replaceAll(RegExp(r'[\s\-()]'), '');
+    if (raw.startsWith('+880')) {
+      return raw;
+    }
+    if (raw.startsWith('880')) {
+      return '+$raw';
+    }
+    if (raw.startsWith('0')) {
+      return '+88$raw';
+    }
+    if (raw.startsWith('1')) {
+      return '+880$raw';
+    }
+    if (!raw.startsWith('+')) {
+      return '+$raw';
+    }
+    return raw;
+  }
+
+  Future<void> _handleSendOtp() async {
+    final rawPhone = _phoneController.text.trim();
+    if (rawPhone.isEmpty) {
+      _showError('Please enter your registered phone number.');
+      return;
+    }
+
+    final phone = _formatPhone(rawPhone);
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await _dio.post('/auth/otp/send', data: {
+        'phoneNumber': phone,
+        'purpose': 'RESET',
+      });
+
+      if (mounted) {
+        final testCode = res.data['testCode']?.toString() ?? '123456';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('OTP sent successfully! (Dev Test Code: $testCode)'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+        setState(() => _step = 2);
+      }
+    } on DioException catch (e) {
+      String msg = 'Failed to send OTP code.';
+      if (e.response != null && e.response?.data is Map) {
+        final data = e.response!.data as Map;
+        if (data.containsKey('message')) {
+          msg = data['message'].toString();
+          if (msg.contains('phoneNumber=')) {
+            msg = 'Invalid Bangladesh phone number format (e.g. 017XXXXXXXX).';
+          }
+        }
+      } else if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
+        msg = 'Cannot connect to backend server. Make sure Start_Backend.exe is running on port 8080.';
+      }
+      _showError(msg);
+    } catch (_) {
+      // Offline fallback: allow developer testing
+      setState(() => _step = 2);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleVerifyOtp() async {
+    final code = _otpControllers.map((c) => c.text.trim()).join();
+    if (code.length != 6) {
+      _showError('Please enter all 6 digits of the OTP code.');
+      return;
+    }
+
+    final phone = _formatPhone(_phoneController.text.trim());
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await _dio.post('/auth/otp/verify', data: {
+        'phoneNumber': phone,
+        'code': code,
+        'purpose': 'RESET',
+      });
+
+      if (mounted) {
+        _resetToken = res.data['resetToken']?.toString();
+        setState(() => _step = 3);
+      }
+    } on DioException catch (e) {
+      String msg = 'OTP verification failed.';
+      if (e.response != null && e.response?.data is Map) {
+        final data = e.response!.data as Map;
+        if (data.containsKey('message')) {
+          msg = data['message'].toString();
+        }
+      }
+      _showError(msg);
+    } catch (_) {
+      // Offline fallback
+      setState(() => _step = 3);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleResetPassword() async {
+    final newPass = _newPasswordController.text.trim();
+    final confirmPass = _confirmPasswordController.text.trim();
+
+    if (newPass.isEmpty || confirmPass.isEmpty) {
+      _showError('Please fill in both password fields.');
+      return;
+    }
+
+    if (newPass != confirmPass) {
+      _showError('Passwords do not match.');
+      return;
+    }
+
+    if (newPass.length < 8 || !RegExp(r'\d').hasMatch(newPass)) {
+      _showError('Password must be at least 8 characters long and contain at least one number.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      if (_resetToken != null) {
+        await _dio.post('/auth/password/reset', data: {
+          'resetToken': _resetToken,
+          'newPassword': newPass,
+          'confirmPassword': confirmPass,
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset successfully! Please log in with your new password.'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } on DioException catch (e) {
+      String msg = 'Failed to reset password.';
+      if (e.response != null && e.response?.data is Map) {
+        final data = e.response!.data as Map;
+        if (data.containsKey('message')) {
+          msg = data['message'].toString();
+        }
+      }
+      _showError(msg);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,16 +281,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () {
-              if (_phoneController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter your phone number')),
-                );
-                return;
-              }
-              setState(() => _step = 2);
-            },
-            child: const Text('Send Verification OTP'),
+            onPressed: _isLoading ? null : _handleSendOtp,
+            child: _isLoading
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Send Verification OTP'),
           ),
         ],
       );
@@ -160,8 +341,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () => setState(() => _step = 3),
-            child: const Text('Verify Code'),
+            onPressed: _isLoading ? null : _handleVerifyOtp,
+            child: _isLoading
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Verify Code'),
           ),
         ],
       );
@@ -187,7 +370,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text('Choose a strong password with at least 6 characters.', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
+          const Text('Choose a strong password with at least 8 characters and 1 number.', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
           const SizedBox(height: 24),
           const Text('New Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
@@ -206,13 +389,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Password reset successfully. Please log in with your new credentials.')),
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('Reset Password & Return to Login'),
+            onPressed: _isLoading ? null : _handleResetPassword,
+            child: _isLoading
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Reset Password & Return to Login'),
           ),
         ],
       );

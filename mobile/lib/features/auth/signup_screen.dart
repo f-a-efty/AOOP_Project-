@@ -95,9 +95,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   String _formatPhone(String raw) {
-    raw = raw.trim();
+    raw = raw.trim().replaceAll(RegExp(r'[\s\-()]'), '');
+    if (raw.startsWith('+880')) {
+      return raw;
+    }
+    if (raw.startsWith('880')) {
+      return '+$raw';
+    }
     if (raw.startsWith('0')) {
       return '+88$raw';
+    }
+    if (raw.startsWith('1')) {
+      return '+880$raw';
     }
     if (!raw.startsWith('+')) {
       return '+$raw';
@@ -137,8 +146,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() => _step = 2);
     } on DioException catch (e) {
       String msg = 'Failed to send OTP code.';
-      if (e.response?.data is Map && e.response?.data.containsKey('message')) {
-        msg = e.response?.data['message'];
+      if (e.response != null && e.response?.data is Map) {
+        final data = e.response!.data as Map;
+        if (data.containsKey('message')) {
+          msg = data['message'].toString();
+          if (msg.contains('phoneNumber=')) {
+            msg = 'Invalid Bangladesh phone number format (e.g. 017XXXXXXXX).';
+          }
+        }
+      } else if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
+        msg = 'Cannot connect to backend server. Make sure Start_Backend.exe is running on port 8080.';
+      } else {
+        msg = 'Network error (${e.message ?? 'Unknown'}). Check server connection.';
       }
       _showError(msg);
     } finally {
