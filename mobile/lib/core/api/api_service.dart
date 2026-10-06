@@ -128,6 +128,13 @@ class ApiService {
     return (res.data as Map<String, dynamic>?) ?? {};
   }
 
+  Future<Map<String, dynamic>> completePickup(int pickupId, {String? plasticGrade}) async {
+    final res = await _dio.post('/company/pickup-requests/$pickupId/complete', data: {
+      if (plasticGrade != null) 'plasticGrade': plasticGrade,
+    });
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
   Future<Map<String, dynamic>> dispatchBoothCollection(int boothId) async {
     final res = await _dio.post('/company/booths/$boothId/dispatch');
     return (res.data as Map<String, dynamic>?) ?? {};

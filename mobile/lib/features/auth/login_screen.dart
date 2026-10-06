@@ -365,8 +365,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
 
   Widget _buildRegisterOptionForRole() {
     if (_selectedRole == 'USER') {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      return Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           const Text("New to Greenify? ", style: TextStyle(color: AppTheme.muted, fontSize: 13)),
           GestureDetector(
@@ -397,13 +398,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
             );
           },
           style: TextButton.styleFrom(foregroundColor: AppTheme.primaryLight),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
+          child: const Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Icon(Icons.business_center_outlined, size: 16),
               SizedBox(width: 6),
               Text(
-                'Apply for Recycling Company Partnership',
+                'Apply for Recycling Partnership',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ],

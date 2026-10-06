@@ -73,7 +73,7 @@ class _CollectionHistoryTabState extends ConsumerState<CollectionHistoryTab> {
                         final loc = booth['locationAddress']?.toString() ?? c['locationAddress']?.toString() ?? 'Dhanmondi Lake Park';
                         final weight = c['weightCollectedKg']?.toString() ?? c['weight']?.toString() ?? '98.50';
                         final grade = c['plasticGrade']?.toString() ?? 'PET 100% Sorted';
-                        final date = c['collectedAt']?.toString()?.split('T')?.first ?? '2026-09-29';
+                        final date = c['collectedAt'] != null ? c['collectedAt'].toString().split('T').first : '2026-09-29';
 
                         return Card(
                           child: Padding(

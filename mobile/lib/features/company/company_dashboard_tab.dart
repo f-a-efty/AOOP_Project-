@@ -78,10 +78,10 @@ class _CompanyDashboardTabState extends ConsumerState<CompanyDashboardTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(color: AppTheme.subtle, borderRadius: BorderRadius.circular(20)),
                   child: Row(
-                    children: const [
-                      CircleAvatar(radius: 4, backgroundColor: Colors.green),
-                      SizedBox(width: 6),
-                      Text('Live Hub', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                    children: [
+                      CircleAvatar(radius: 4, backgroundColor: _isLoading ? AppTheme.warningAmber : Colors.green),
+                      const SizedBox(width: 6),
+                      Text(_isLoading ? 'Syncing...' : 'Live Hub', style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 12)),
                     ],
                   ),
                 ),

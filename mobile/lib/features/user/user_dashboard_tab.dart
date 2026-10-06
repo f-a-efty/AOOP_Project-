@@ -104,7 +104,7 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
                               const Icon(Icons.eco_rounded, size: 14, color: AppTheme.accent),
                               const SizedBox(width: 5),
                               Text(
-                                loyalty,
+                                _isLoading ? 'Updating...' : loyalty,
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                             ],

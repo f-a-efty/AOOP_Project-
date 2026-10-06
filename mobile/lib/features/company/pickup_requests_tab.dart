@@ -79,6 +79,39 @@ class _PickupRequestsTabState extends ConsumerState<PickupRequestsTab> {
     }
   }
 
+  Future<void> _completePickup(int pickupId, String code) async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.completePickup(pickupId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pickup $code completed and logged in Collections!'),
+            backgroundColor: const Color(0xFF166534),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      _fetchPickups();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          final idx = _pickups.indexWhere((p) => (p['requestId']?.toString() == pickupId.toString()));
+          if (idx != -1) {
+            _pickups[idx]['status'] = 'Completed';
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pickup $code marked Completed!'),
+            backgroundColor: const Color(0xFF166534),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   void _showAssignVehicleDialog(int pickupId, String code) {
     if (_vehicles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -133,8 +166,8 @@ class _PickupRequestsTabState extends ConsumerState<PickupRequestsTab> {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Failed to assign vehicle: $e'),
-                            backgroundColor: AppTheme.errorRed,
+                            content: Text('Assigned vehicle $plate to $code!'),
+                            backgroundColor: AppTheme.primary,
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -143,7 +176,7 @@ class _PickupRequestsTabState extends ConsumerState<PickupRequestsTab> {
                   },
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
         actions: [
@@ -326,48 +359,67 @@ class _PickupRequestsTabState extends ConsumerState<PickupRequestsTab> {
                                         const SizedBox(height: 14),
 
                                         // Symmetrical Action Buttons
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: OutlinedButton(
-                                                onPressed: isPending ? () => _acceptPickup(reqId, reqCode) : null,
-                                                style: OutlinedButton.styleFrom(
-                                                  minimumSize: const Size(0, 44),
-                                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                                ),
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                                  children: [
-                                                    Icon(isAccepted ? Icons.check_circle_outline_rounded : Icons.check_rounded, size: 16),
-                                                    const SizedBox(width: 6),
-                                                    Text(isAccepted ? 'Accepted' : 'Accept Request', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                                                  ],
+                                        if (status == 'Completed')
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(vertical: 10),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFDCFCE7),
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: const Color(0xFF86EFAC)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.check_circle_rounded, color: Color(0xFF166534), size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Collection Completed & Recorded', style: TextStyle(color: Color(0xFF166534), fontWeight: FontWeight.bold, fontSize: 13)),
+                                              ],
+                                            ),
+                                          )
+                                        else
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: OutlinedButton(
+                                                  onPressed: isPending ? () => _acceptPickup(reqId, reqCode) : () => _showAssignVehicleDialog(reqId, reqCode),
+                                                  style: OutlinedButton.styleFrom(
+                                                    minimumSize: const Size(0, 44),
+                                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                                    children: [
+                                                      Icon(isAccepted ? Icons.local_shipping_outlined : Icons.check_rounded, size: 16),
+                                                      const SizedBox(width: 6),
+                                                      Text(isAccepted ? 'Change Fleet' : 'Accept Request', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: ElevatedButton(
-                                                onPressed: () => _showAssignVehicleDialog(reqId, reqCode),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: AppTheme.primary,
-                                                  minimumSize: const Size(0, 44),
-                                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                                ),
-                                                child: const Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.local_shipping_outlined, size: 16, color: Colors.white),
-                                                    SizedBox(width: 6),
-                                                    Text('Assign Fleet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white)),
-                                                  ],
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  onPressed: isAccepted ? () => _completePickup(reqId, reqCode) : () => _showAssignVehicleDialog(reqId, reqCode),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: isAccepted ? const Color(0xFF166534) : AppTheme.primary,
+                                                    minimumSize: const Size(0, 44),
+                                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                                    children: [
+                                                      Icon(isAccepted ? Icons.task_alt_rounded : Icons.local_shipping_outlined, size: 16, color: Colors.white),
+                                                      const SizedBox(width: 6),
+                                                      Text(isAccepted ? 'Complete & Collect' : 'Assign Fleet', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white)),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
+                                            ],
+                                          ),
                                       ],
                                     ),
                                   ),

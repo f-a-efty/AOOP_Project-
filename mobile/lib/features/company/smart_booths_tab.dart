@@ -16,7 +16,6 @@ class SmartBoothsTab extends ConsumerStatefulWidget {
 class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
   bool _isLoading = false;
   List<dynamic> _booths = [];
-  String? _errorMessage;
   int _viewMode = 0; // 0 = Map View, 1 = List View
   String _filterMode = 'ALL'; // 'ALL', 'URGENT', 'NEAREST'
   Map<String, dynamic>? _selectedBooth;
@@ -34,7 +33,6 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
   Future<void> _fetchBooths() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
@@ -44,8 +42,8 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
         setState(() {
           _booths = booths.isNotEmpty ? booths : _fallbackBooths;
           _isLoading = false;
-          if (_booths.isNotEmpty && _selectedBooth == null) {
-            _selectedBooth = _booths[0] as Map<String, dynamic>;
+          if (_booths.isNotEmpty) {
+            _selectedBooth ??= _booths[0] as Map<String, dynamic>;
           }
         });
       }
@@ -53,11 +51,8 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
       if (mounted) {
         setState(() {
           _booths = _fallbackBooths;
-          _errorMessage = null;
           _isLoading = false;
-          if (_selectedBooth == null) {
-            _selectedBooth = _fallbackBooths[0];
-          }
+          _selectedBooth ??= _fallbackBooths[0];
         });
       }
     }
