@@ -5,6 +5,7 @@ import com.greenify.entity.DepositSession;
 import com.greenify.entity.User;
 import com.greenify.exception.ResourceNotFoundException;
 import com.greenify.repository.PlasticDepositRepository;
+import com.greenify.repository.SmartBoothRepository;
 import com.greenify.repository.UserRepository;
 import com.greenify.security.UserPrincipal;
 import com.greenify.service.CouponService;
@@ -82,6 +83,65 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long couponId) {
         return ResponseEntity.ok(couponService.redeemCoupon(principal.getUserId(), couponId));
+    }
+
+    private final SmartBoothRepository boothRepository;
+    private final com.greenify.service.EconomicsService economicsService;
+
+    @GetMapping("/economics")
+    public ResponseEntity<?> getEconomics() {
+        return ResponseEntity.ok(Map.of(
+                "tokensPerKg", economicsService.getTokensPerKg(),
+                "tokensPerTaka", economicsService.getTokensPerTaka(),
+                "minWithdrawalTaka", economicsService.getMinWithdrawalTaka(),
+                "co2KgPerPlasticKg", economicsService.getCo2KgPerPlasticKg()
+        ));
+    }
+
+    @GetMapping("/booths")
+    public ResponseEntity<?> getBooths() {
+        return ResponseEntity.ok(boothRepository.findAll());
+    }
+
+    @GetMapping("/leaderboard")
+    public ResponseEntity<?> getLeaderboard() {
+        var topUsers = userRepository.findAll().stream()
+                .filter(u -> u.getRole() == com.greenify.domain.enums.Role.USER)
+                .sorted((a, b) -> Integer.compare(b.getTotalTokens(), a.getTotalTokens()))
+                .limit(25)
+                .map(u -> Map.of(
+                        "userId", u.getUserId(),
+                        "fullName", u.getFullName(),
+                        "totalTokens", u.getTotalTokens(),
+                        "walletBalanceTaka", u.getWalletBalance(),
+                        "totalPlasticKg", depositRepository.getTotalWeightKgByUserId(u.getUserId()),
+                        "loyaltyLevel", u.getLoyaltyLevel() != null ? u.getLoyaltyLevel() : "Eco Buddy"
+                ))
+                .toList();
+        return ResponseEntity.ok(topUsers);
+    }
+
+    @PostMapping("/me/deposit/manual")
+    public ResponseEntity<?> manualDeposit(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, Object> body) {
+        BigDecimal weightKg = new BigDecimal(body.get("weightKg").toString());
+        String plasticType = body.containsKey("plasticType") ? body.get("plasticType").toString() : "PET Plastic Bottles";
+        Long boothId = body.containsKey("boothId") && body.get("boothId") != null
+                ? Long.parseLong(body.get("boothId").toString())
+                : null;
+
+        var deposit = depositService.manualDeposit(principal.getUserId(), boothId, weightKg, plasticType);
+        User user = userRepository.findById(principal.getUserId()).orElseThrow();
+        return ResponseEntity.ok(Map.of(
+                "depositId", deposit.getDepositId(),
+                "plasticWeightKg", deposit.getPlasticWeightKg(),
+                "plasticType", deposit.getPlasticType(),
+                "tokensEarned", deposit.getTokensEarned(),
+                "totalTokens", user.getTotalTokens(),
+                "walletBalanceTaka", user.getWalletBalance(),
+                "success", true
+        ));
     }
 
     @PostMapping("/deposit-sessions")

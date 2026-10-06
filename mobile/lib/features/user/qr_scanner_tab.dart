@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../main.dart';
 
 class QrScannerTab extends ConsumerStatefulWidget {
   const QrScannerTab({super.key});
@@ -13,7 +14,16 @@ class QrScannerTab extends ConsumerStatefulWidget {
 class _QrScannerTabState extends ConsumerState<QrScannerTab> {
   final _weightController = TextEditingController(text: '1.5');
   int _selectedBoothId = 1;
+  String _selectedPlasticType = 'PET Plastic Bottles';
   bool _isDepositing = false;
+
+  final List<String> _plasticTypes = [
+    'PET Plastic Bottles',
+    'HDPE Milk & Juice Jugs',
+    'LDPE Soft Wraps & Bags',
+    'PP Containers & Bottle Caps',
+    'Mixed Plastics (General)',
+  ];
 
   final List<Map<String, dynamic>> _booths = [
     {'id': 1, 'code': 'BTH-DH-001', 'name': 'Dhanmondi Lake Park Entrance, Road 8'},
@@ -22,8 +32,25 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
     {'id': 4, 'code': 'BTH-DH-004', 'name': 'Gulshan 2 DCC Market Plaza'},
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _weightController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    super.dispose();
+  }
+
+  double get _currentWeight => double.tryParse(_weightController.text.trim()) ?? 0.0;
+  int get _projectedTokens => (_currentWeight * 100).floor();
+  double get _projectedTaka => _projectedTokens / 4.0;
+  double get _projectedCo2 => _currentWeight * 1.5;
+
   Future<void> _handleDeposit() async {
-    final weight = double.tryParse(_weightController.text.trim()) ?? 0.0;
+    final weight = _currentWeight;
     if (weight <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid plastic weight in kg.'), backgroundColor: AppTheme.errorRed),
@@ -36,17 +63,27 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
     try {
       final api = ref.read(apiServiceProvider);
 
-      // Step 1: Generate dynamic QR token from booth hardware
-      final qrRes = await api.generateBoothQr(_selectedBoothId);
-      final qrToken = qrRes['qrToken']?.toString() ?? 'QR-SIM-TOKEN';
+      // Perform verified deposit
+      Map<String, dynamic> depositRes;
+      try {
+        depositRes = await api.manualDeposit(
+          weightKg: weight,
+          plasticType: _selectedPlasticType,
+          boothId: _selectedBoothId,
+        );
+      } catch (_) {
+        // Fallback to booth IoT session flow if direct deposit endpoint is unrouted
+        final qrRes = await api.generateBoothQr(_selectedBoothId);
+        final qrToken = qrRes['qrToken']?.toString() ?? 'QR-SIM-TOKEN';
+        final sessionRes = await api.createDepositSession(_selectedBoothId, qrToken);
+        final sessionId = sessionRes['sessionId']?.toString() ?? 'DS-AUTO';
+        depositRes = await api.submitDepositWeight(_selectedBoothId, sessionId, weight);
+      }
 
-      // Step 2: Citizen links session
-      final sessionRes = await api.createDepositSession(_selectedBoothId, qrToken);
-      final sessionId = sessionRes['sessionId']?.toString() ?? 'DS-AUTO';
+      final tokensEarned = (depositRes['tokensEarned'] as num?)?.toInt() ?? _projectedTokens;
 
-      // Step 3: Booth IoT load cell weighs plastic and credits tokens
-      final depositRes = await api.submitDepositWeight(_selectedBoothId, sessionId, weight);
-      final tokensEarned = (depositRes['tokensEarned'] as num?)?.toInt() ?? (weight * 100).toInt();
+      // Trigger automatic dashboard refresh
+      ref.read(userDashboardReloadTriggerProvider.notifier).state++;
 
       if (mounted) {
         showDialog(
@@ -64,7 +101,7 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Successfully deposited ${weight.toStringAsFixed(2)} kg of clean sorted plastic at booth #${_selectedBoothId}.',
+                  'Successfully deposited ${weight.toStringAsFixed(2)} kg of clean $_selectedPlasticType at booth station #$_selectedBoothId.',
                   style: const TextStyle(fontSize: 13.5, height: 1.4),
                 ),
                 const SizedBox(height: 14),
@@ -78,6 +115,11 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
                       Text('+$tokensEarned Tokens', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF166534))),
                     ],
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Cashback Value: ৳${(tokensEarned / 4.0).toStringAsFixed(2)} BDT  •  CO2 Abated: ${_projectedCo2.toStringAsFixed(1)} kg',
+                  style: const TextStyle(fontSize: 11.5, color: AppTheme.muted),
                 ),
               ],
             ),
@@ -115,7 +157,7 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
 
           // Scanner Target Frame
           Container(
-            height: 180,
+            height: 170,
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white,
@@ -139,26 +181,26 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
                       color: AppTheme.subtle,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.qr_code_scanner_rounded, size: 40, color: AppTheme.primary),
+                    child: const Icon(Icons.qr_code_scanner_rounded, size: 38, color: AppTheme.primary),
                   ),
                   const SizedBox(height: 10),
                   const Text('Hardware Scale Camera Scanner Active', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
                   const SizedBox(height: 2),
-                  const Text('Align booth dynamic QR code inside viewport', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                  const Text('Align booth dynamic QR code inside viewport or enter drop-off below', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 20),
 
-          // Smart Booth Scale Station Selector
+          // Smart Booth Scale Station Selector Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(18.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Select Smart Booth Station', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text('Select Smart Booth Station', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     value: _selectedBoothId,
@@ -173,7 +215,22 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
                   ),
                   const SizedBox(height: 16),
 
-                  const Text('Plastic Deposit Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text('Select Plastic Polymer Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _selectedPlasticType,
+                    decoration: const InputDecoration(prefixIcon: Icon(Icons.category_rounded, color: AppTheme.accent)),
+                    items: _plasticTypes.map((type) {
+                      return DropdownMenuItem<String>(
+                        value: type,
+                        child: Text(type, style: const TextStyle(fontSize: 13)),
+                      );
+                    }).toList(),
+                    onChanged: (val) => setState(() => _selectedPlasticType = val ?? _plasticTypes.first),
+                  ),
+                  const SizedBox(height: 16),
+
+                  const Text('Plastic Deposit Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _weightController,
@@ -184,9 +241,48 @@ class _QrScannerTabState extends ConsumerState<QrScannerTab> {
                       suffixText: 'kg',
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Real-time Reward Estimate Preview Banner
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.subtle,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            const Text('Tokens', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                            const SizedBox(height: 2),
+                            Text('+$_projectedTokens', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primary)),
+                          ],
+                        ),
+                        Container(height: 28, width: 1, color: AppTheme.border),
+                        Column(
+                          children: [
+                            const Text('Cashback Value', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                            const SizedBox(height: 2),
+                            Text('৳${_projectedTaka.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0369A1))),
+                          ],
+                        ),
+                        Container(height: 28, width: 1, color: AppTheme.border),
+                        Column(
+                          children: [
+                            const Text('CO2 Abated', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                            const SizedBox(height: 2),
+                            Text('${_projectedCo2.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 22),
 
-                  // OCD-Perfect Balanced Submit Button
+                  // Submit Button
                   SizedBox(
                     height: 48,
                     child: ElevatedButton(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/eco_background_wrapper.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -20,11 +21,34 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reset Password'),
+        elevation: 0,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: _buildCurrentStep(),
+      body: EcoBackgroundWrapper(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2E6027).withOpacity(0.12),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  padding: const EdgeInsets.all(28.0),
+                  child: _buildCurrentStep(),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -35,20 +59,50 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.subtle,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lock_reset_rounded, color: AppTheme.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Verify Phone',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           const Text(
-            'Enter your registered phone number to receive an OTP verification code.',
-            style: TextStyle(color: AppTheme.muted),
+            'Enter your registered phone number to receive a 6-digit OTP verification code.',
+            style: TextStyle(color: AppTheme.muted, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 24),
-          const Text('Phone Number', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Phone Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
           TextField(
             controller: _phoneController,
-            decoration: const InputDecoration(hintText: '+88017XXXXXXXX'),
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              hintText: '017XXXXXXXX',
+              prefixIcon: Icon(Icons.phone_android_rounded, color: AppTheme.primary, size: 20),
+            ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () => setState(() => _step = 2),
+            onPressed: () {
+              if (_phoneController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter your phone number')),
+                );
+                return;
+              }
+              setState(() => _step = 2);
+            },
             child: const Text('Send Verification OTP'),
           ),
         ],
@@ -57,24 +111,46 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Enter the 6-digit verification code sent to your phone (Dev test mode: 123456)',
-            style: TextStyle(color: AppTheme.muted),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.subtle,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.mark_email_read_rounded, color: AppTheme.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Enter OTP Code',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textDark),
+              ),
+            ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 12),
+          const Text(
+            'Enter the 6-digit verification code sent to your phone (Dev Test Mode: 123456).',
+            style: TextStyle(color: AppTheme.muted, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 28),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: List.generate(6, (index) {
               return SizedBox(
-                width: 45,
-                height: 55,
+                width: 44,
+                height: 52,
                 child: TextField(
                   controller: _otpControllers[index],
                   textAlign: TextAlign.center,
                   keyboardType: TextInputType.number,
                   maxLength: 1,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primary),
-                  decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    contentPadding: EdgeInsets.zero,
+                    fillColor: AppTheme.subtle.withOpacity(0.5),
+                  ),
                   onChanged: (val) {
                     if (val.isNotEmpty && index < 5) FocusScope.of(context).nextFocus();
                   },
@@ -82,10 +158,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               );
             }),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           ElevatedButton(
             onPressed: () => setState(() => _step = 3),
-            child: const Text('Verify OTP'),
+            child: const Text('Verify Code'),
           ),
         ],
       );
@@ -93,20 +169,46 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Set your new password.', style: TextStyle(color: AppTheme.muted)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.subtle,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.password_rounded, color: AppTheme.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'New Password',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Choose a strong password with at least 6 characters.', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
           const SizedBox(height: 24),
-          const Text('New Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('New Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
-          TextField(controller: _newPasswordController, obscureText: true, decoration: const InputDecoration(hintText: '••••••••')),
+          TextField(
+            controller: _newPasswordController,
+            obscureText: true,
+            decoration: const InputDecoration(hintText: '••••••••', prefixIcon: Icon(Icons.lock_outline_rounded, size: 20)),
+          ),
           const SizedBox(height: 16),
-          const Text('Confirm New Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Confirm New Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
-          TextField(controller: _confirmPasswordController, obscureText: true, decoration: const InputDecoration(hintText: '••••••••')),
-          const SizedBox(height: 32),
+          TextField(
+            controller: _confirmPasswordController,
+            obscureText: true,
+            decoration: const InputDecoration(hintText: '••••••••', prefixIcon: Icon(Icons.lock_outline_rounded, size: 20)),
+          ),
+          const SizedBox(height: 28),
           ElevatedButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Password reset successfully. Please log in.')),
+                const SnackBar(content: Text('Password reset successfully. Please log in with your new credentials.')),
               );
               Navigator.pop(context);
             },

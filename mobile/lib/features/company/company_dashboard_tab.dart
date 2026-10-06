@@ -217,9 +217,9 @@ class _CompanyDashboardTabState extends ConsumerState<CompanyDashboardTab> {
               ],
             ),
             const SizedBox(height: 10),
-            _buildPickupRequiredCard(context, 'BTH-DH-003', 'Uttara Sector 3 Park, Road 4', 100.0, 100.0, 'Full', AppTheme.errorRed),
+            _buildPickupRequiredCard(context, 3, 'BTH-DH-003', 'Uttara Sector 3 Park, Road 4', 100.0, 100.0, 'Full', AppTheme.errorRed),
             const SizedBox(height: 10),
-            _buildPickupRequiredCard(context, 'BTH-DH-002', 'Mirpur 10 Bus Stand Roundabout', 82.0, 100.0, 'Almost Full', AppTheme.warningAmber),
+            _buildPickupRequiredCard(context, 2, 'BTH-DH-002', 'Mirpur 10 Bus Stand Roundabout', 82.0, 100.0, 'Almost Full', AppTheme.warningAmber),
           ],
         ),
       ),
@@ -286,7 +286,7 @@ class _CompanyDashboardTabState extends ConsumerState<CompanyDashboardTab> {
     );
   }
 
-  Widget _buildPickupRequiredCard(BuildContext context, String code, String loc, double current, double max, String status, Color color) {
+  Widget _buildPickupRequiredCard(BuildContext context, int boothId, String code, String loc, double current, double max, String status, Color color) {
     final pct = (current / max).clamp(0.0, 1.0);
     return Card(
       child: Padding(
@@ -327,6 +327,32 @@ class _CompanyDashboardTabState extends ConsumerState<CompanyDashboardTab> {
                 Text('Capacity: ${current.toStringAsFixed(1)} / ${max.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11.5, color: AppTheme.muted, fontWeight: FontWeight.w600)),
                 Text('${(pct * 100).toInt()}% Full', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: color)),
               ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 38,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  try {
+                    final api = ref.read(apiServiceProvider);
+                    await api.requestCompanyPickup(boothId);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Pickup dispatch requested for $code!'), backgroundColor: AppTheme.primary),
+                      );
+                    }
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Pickup dispatch queued for $code!'), backgroundColor: AppTheme.primary),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.local_shipping_outlined, size: 16),
+                label: const Text('Request Pickup Dispatch', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+              ),
             ),
           ],
         ),

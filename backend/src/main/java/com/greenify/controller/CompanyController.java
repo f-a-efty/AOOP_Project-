@@ -123,6 +123,44 @@ public class CompanyController {
         return ResponseEntity.ok(vehicleRepository.save(vehicle));
     }
 
+    private final com.greenify.repository.NotificationRepository notificationRepository;
+
+    @GetMapping("/alerts")
+    public ResponseEntity<?> getAlerts(@AuthenticationPrincipal UserPrincipal principal) {
+        Long companyId = getCompanyId(principal);
+        var alerts = notificationRepository.findByRecipientRoleAndRecipientIdOrderByCreatedAtDesc("COMPANY", companyId);
+        if (alerts.isEmpty()) {
+            alerts = notificationRepository.findByRecipientRoleOrderByCreatedAtDesc("COMPANY");
+        }
+        var mapped = alerts.stream().map(n -> Map.of(
+                "alertId", n.getNotificationId(),
+                "title", n.getTitle(),
+                "message", n.getMessage(),
+                "category", n.getCategory() != null ? n.getCategory() : "System",
+                "isRead", Boolean.TRUE.equals(n.getIsRead()),
+                "createdAt", n.getCreatedAt() != null ? n.getCreatedAt().toString() : ""
+        )).toList();
+        return ResponseEntity.ok(mapped);
+    }
+
+    @PostMapping("/alerts/{alertId}/read")
+    public ResponseEntity<?> markAlertRead(@PathVariable Long alertId) {
+        notificationRepository.findById(alertId).ifPresent(n -> {
+            n.setIsRead(true);
+            notificationRepository.save(n);
+        });
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PostMapping("/booths/{boothId}/pickup-requests")
+    public ResponseEntity<?> requestBoothPickup(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long boothId) {
+        Long companyId = getCompanyId(principal);
+        var res = pickupService.dispatchAndCollectBooth(companyId, boothId);
+        return ResponseEntity.ok(res);
+    }
+
     @GetMapping("/collections")
     public ResponseEntity<List<Collection>> getCollections(@AuthenticationPrincipal UserPrincipal principal) {
         Long companyId = getCompanyId(principal);

@@ -98,6 +98,62 @@ class ApiService {
     return (res.data as List<dynamic>?) ?? [];
   }
 
+  Future<List<dynamic>> getAdminActivity({int limit = 15}) async {
+    final res = await _dio.get('/admin/dashboard/activity', queryParameters: {'limit': limit});
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<Map<String, dynamic>> getAdminAnalytics({int days = 30}) async {
+    final res = await _dio.get('/admin/reports/analytics', queryParameters: {'days': days});
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
+  Future<List<dynamic>> getActiveCompanies() async {
+    final res = await _dio.get('/admin/companies/active');
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<List<dynamic>> getAdminCampaigns() async {
+    final res = await _dio.get('/admin/campaigns');
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<Map<String, dynamic>> saveAdminCampaign(Map<String, dynamic> body, {int? campaignId}) async {
+    final res = campaignId == null
+        ? await _dio.post('/admin/campaigns', data: body)
+        : await _dio.put('/admin/campaigns/$campaignId', data: body);
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
+  Future<void> archiveAdminCampaign(int campaignId) async {
+    await _dio.delete('/admin/campaigns/$campaignId');
+  }
+
+  Future<List<dynamic>> getAdminCoupons() async {
+    final res = await _dio.get('/admin/coupons');
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<Map<String, dynamic>> saveAdminCoupon(Map<String, dynamic> body, {int? couponId}) async {
+    final res = couponId == null
+        ? await _dio.post('/admin/coupons', data: body)
+        : await _dio.put('/admin/coupons/$couponId', data: body);
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
+  Future<void> archiveAdminCoupon(int couponId) async {
+    await _dio.delete('/admin/coupons/$couponId');
+  }
+
+  Future<List<dynamic>> getLoyaltyLevels() async {
+    final res = await _dio.get('/admin/loyalty-levels');
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<void> updateLoyaltyLevel(String level, Map<String, dynamic> body) async {
+    await _dio.put('/admin/loyalty-levels/${Uri.encodeComponent(level)}', data: body);
+  }
+
   // --- Company APIs ---
   Future<Map<String, dynamic>> getCompanyDashboard() async {
     final res = await _dio.get('/company/dashboard');
@@ -150,9 +206,57 @@ class ApiService {
     return (res.data as List<dynamic>?) ?? [];
   }
 
+  Future<List<dynamic>> getCompanyAlerts() async {
+    final res = await _dio.get('/company/alerts');
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<Map<String, dynamic>> markCompanyAlertRead(int alertId) async {
+    final res = await _dio.post('/company/alerts/$alertId/read');
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
+  Future<Map<String, dynamic>> createCompanyVehicle(Map<String, dynamic> body) async {
+    final res = await _dio.post('/company/vehicles', data: body);
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
+  Future<Map<String, dynamic>> requestCompanyPickup(int boothId) async {
+    final res = await _dio.post('/company/booths/$boothId/pickup-requests');
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
   // --- User APIs ---
   Future<Map<String, dynamic>> getUserDashboard() async {
     final res = await _dio.get('/me/dashboard');
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
+  Future<List<dynamic>> getLeaderboard() async {
+    final res = await _dio.get('/leaderboard');
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<List<dynamic>> getBooths() async {
+    final res = await _dio.get('/booths');
+    return (res.data as List<dynamic>?) ?? [];
+  }
+
+  Future<Map<String, dynamic>> getPublicEconomics() async {
+    final res = await _dio.get('/economics');
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
+
+  Future<Map<String, dynamic>> manualDeposit({
+    required double weightKg,
+    String plasticType = 'PET/Mix',
+    int? boothId,
+  }) async {
+    final res = await _dio.post('/me/deposit/manual', data: {
+      'weightKg': weightKg,
+      'plasticType': plasticType,
+      if (boothId != null) 'boothId': boothId,
+    });
     return (res.data as Map<String, dynamic>?) ?? {};
   }
 

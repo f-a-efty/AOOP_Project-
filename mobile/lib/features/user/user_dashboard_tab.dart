@@ -39,6 +39,7 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(userDashboardReloadTriggerProvider, (_, __) => _fetchDashboard());
     final stateUserName = ref.watch(userNameProvider) ?? 'Citizen Recycler';
     final displayName = _dashboardData['fullName'] ?? stateUserName;
     final totalTokens = _dashboardData['totalTokens']?.toString() ?? '0';

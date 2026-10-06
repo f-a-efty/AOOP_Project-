@@ -201,6 +201,15 @@ public class DepositService {
     }
 
     @Transactional
+    public PlasticDeposit manualDeposit(Long userId, Long boothId, BigDecimal weightKg, String plasticType) {
+        if (boothId == null) {
+            boothId = boothRepository.findAll().stream().findFirst()
+                    .map(SmartBooth::getBoothId).orElse(1L);
+        }
+        return directSimulatedDeposit(boothId, userId, weightKg, plasticType);
+    }
+
+    @Transactional
     public PlasticDeposit directSimulatedDeposit(Long boothId, Long userId, BigDecimal weightKg, String plasticType) {
         User user = (userId != null)
                 ? userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId))

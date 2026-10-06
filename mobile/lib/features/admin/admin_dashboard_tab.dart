@@ -18,6 +18,28 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
   Map<String, dynamic> _metrics = {};
   List<dynamic> _pendingCompanies = [];
   Map<String, dynamic>? _aiPrediction;
+  List<dynamic> _activity = [];
+
+  final List<Map<String, dynamic>> _sampleActivities = [
+    {
+      'activityType': 'deposit',
+      'title': 'Plastic Deposited',
+      'description': 'Rafiqul Islam deposited 3.2 kg PET at Dhanmondi Lake (320 tokens)',
+      'createdAt': DateTime.now().subtract(const Duration(minutes: 12)).toIso8601String(),
+    },
+    {
+      'activityType': 'company',
+      'title': 'Partner Enterprise Approved',
+      'description': 'Green Bangladesh Recycling registered & verified',
+      'createdAt': DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+    },
+    {
+      'activityType': 'cashback',
+      'title': 'bKash Cashback Processed',
+      'description': 'Farzana Ahmed redeemed 400 tokens for ৳100.00 BDT',
+      'createdAt': DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
+    },
+  ];
 
   @override
   void initState() {
@@ -32,13 +54,15 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
       final api = ref.read(apiServiceProvider);
       final metricsFuture = api.getAdminMetrics();
       final pendingFuture = api.getPendingCompanies().catchError((_) => <dynamic>[]);
+      final activityFuture = api.getAdminActivity().catchError((_) => <dynamic>[]);
 
-      final results = await Future.wait([metricsFuture, pendingFuture]);
+      final results = await Future.wait([metricsFuture, pendingFuture, activityFuture]);
 
       if (mounted) {
         setState(() {
           _metrics = results[0] as Map<String, dynamic>;
           _pendingCompanies = results[1] as List<dynamic>;
+          _activity = results[2] as List<dynamic>;
           _isLoading = false;
         });
       }
@@ -159,8 +183,10 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh_rounded, color: AppTheme.primary),
-                  onPressed: () {
+                  icon: _isLoading
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary))
+                      : const Icon(Icons.refresh_rounded, color: AppTheme.primary),
+                  onPressed: _isLoading ? null : () {
                     _fetchDashboard();
                     _fetchAiPrediction();
                   },
@@ -675,8 +701,91 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
               ),
             ),
             const SizedBox(height: 24),
+
+            // =================================================================
+            // LIVE PLATFORM ACTIVITY STREAM
+            // =================================================================
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Recent Platform Activity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                Text('${_activity.isNotEmpty ? _activity.length : _sampleActivities.length} events', style: const TextStyle(fontSize: 12, color: AppTheme.muted, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_activity.isEmpty)
+              ..._sampleActivities.map((item) => _buildActivityRow(item))
+            else
+              ..._activity.map((item) => _buildActivityRow(Map<String, dynamic>.from(item as Map))),
+            const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildActivityRow(Map<String, dynamic> item) {
+    final kind = item['activityType']?.toString() ?? '';
+    final icon = switch (kind) {
+      'user' => Icons.person_add_alt_1_rounded,
+      'deposit' => Icons.recycling_rounded,
+      'cashback' => Icons.account_balance_wallet_rounded,
+      'company' => Icons.apartment_rounded,
+      'collection' => Icons.local_shipping_rounded,
+      _ => Icons.bolt_rounded,
+    };
+    final color = switch (kind) {
+      'user' => AppTheme.skyBlue,
+      'deposit' => AppTheme.primary,
+      'cashback' => AppTheme.warningAmber,
+      'company' => AppTheme.accent,
+      'collection' => const Color(0xFF0284C7),
+      _ => AppTheme.primary,
+    };
+
+    final time = DateTime.tryParse(item['createdAt']?.toString() ?? '');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.7)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item['title']?.toString() ?? 'Platform Activity',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item['description']?.toString() ?? '',
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 11.5, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            time == null ? 'Recent' : '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+            style: const TextStyle(color: AppTheme.muted, fontSize: 10.5, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }

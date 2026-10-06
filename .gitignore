@@ -6,3 +6,4 @@ target/
 *.class
 *.jar
 .env
+Greenify2.0/

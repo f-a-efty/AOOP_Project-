@@ -45,6 +45,12 @@ public class EconomicsService {
         return getMinWithdrawalTaka() * getTokensPerTaka();
     }
 
+    public double getCo2KgPerPlasticKg() {
+        return configRepository.findById("co2_kg_per_plastic_kg")
+                .map(c -> Double.parseDouble(c.getConfigValue()))
+                .orElse(1.5);
+    }
+
     /**
      * Calculates tokens earned from plastic weight in kg.
      * Rule: 100 tokens per kg -> floor(weight_kg * 100). Grams under 10g are discarded.

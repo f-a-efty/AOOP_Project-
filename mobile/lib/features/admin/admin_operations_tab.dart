@@ -38,8 +38,8 @@ class _AdminOperationsTabState extends ConsumerState<AdminOperationsTab> {
 
       if (mounted) {
         setState(() {
-          _pendingCompanies = results[0] as List<dynamic>;
-          _booths = results[1] as List<dynamic>;
+          _pendingCompanies = results[0];
+          _booths = results[1];
           _isLoading = false;
         });
       }

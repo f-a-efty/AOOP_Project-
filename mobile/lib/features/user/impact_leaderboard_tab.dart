@@ -25,13 +25,16 @@ class _ImpactLeaderboardTabState extends ConsumerState<ImpactLeaderboardTab> {
     setState(() => _isLoading = true);
     try {
       final api = ref.read(apiServiceProvider);
-      final list = await api.getAllUsers();
+      var list = await api.getLeaderboard().catchError((_) => <dynamic>[]);
+      if (list.isEmpty) {
+        list = await api.getAllUsers().catchError((_) => <dynamic>[]);
+      }
+
       if (mounted) {
-        // Filter users with Role USER and sort by totalTokens descending
-        final citizenList = list.where((u) => u['role'] == 'USER').toList();
+        final citizenList = list.where((u) => u['role'] == null || u['role'] == 'USER').toList();
         citizenList.sort((a, b) {
-          final tA = (a['totalTokens'] as num?)?.toInt() ?? 0;
-          final tB = (b['totalTokens'] as num?)?.toInt() ?? 0;
+          final tA = (a['totalTokens'] as num?)?.toInt() ?? ((a['tokensEarned'] as num?)?.toInt() ?? 0);
+          final tB = (b['totalTokens'] as num?)?.toInt() ?? ((b['tokensEarned'] as num?)?.toInt() ?? 0);
           return tB.compareTo(tA);
         });
 
@@ -47,6 +50,7 @@ class _ImpactLeaderboardTabState extends ConsumerState<ImpactLeaderboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(userDashboardReloadTriggerProvider, (_, __) => _fetchLeaderboard());
     final currentPhone = ref.watch(userPhoneProvider) ?? '';
 
     return Padding(
