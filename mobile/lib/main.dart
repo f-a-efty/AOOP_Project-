@@ -22,6 +22,7 @@ final userIdProvider = StateProvider<int?>((ref) => null);
 final currentUserProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
 final userDashboardReloadTriggerProvider = StateProvider<int>((ref) => 0);
 final companyDataReloadTriggerProvider = StateProvider<int>((ref) => 0);
+final userDashboardStateProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
 
 class GreenifyApp extends ConsumerWidget {
   const GreenifyApp({super.key});

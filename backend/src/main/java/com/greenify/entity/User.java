@@ -46,6 +46,14 @@ public class User {
     @Formula("total_tokens / 4.0")
     private BigDecimal walletBalance;
 
+    public BigDecimal getWalletBalance() {
+        if (totalTokens != null) {
+            return BigDecimal.valueOf(totalTokens)
+                    .divide(BigDecimal.valueOf(4.0), 2, java.math.RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
     @Column(name = "loyalty_level", length = 32)
     @Builder.Default
     private String loyaltyLevel = "Eco Buddy";

@@ -82,7 +82,10 @@ class _UserHomeScreenState extends ConsumerState<UserHomeScreen> {
       ),
       bottomNavigationBar: ModernEcoNavBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          ref.read(userDashboardReloadTriggerProvider.notifier).state++;
+        },
         items: const [
           ModernNavBarItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
           ModernNavBarItem(icon: Icons.qr_code_scanner_rounded, activeIcon: Icons.qr_code_scanner_rounded, label: 'Deposit'),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../main.dart';
 
 class CouponsTab extends ConsumerStatefulWidget {
   const CouponsTab({super.key});
@@ -19,6 +20,17 @@ class _CouponsTabState extends ConsumerState<CouponsTab> {
   void initState() {
     super.initState();
     _fetchCoupons();
+    _fetchUserBalance();
+  }
+
+  Future<void> _fetchUserBalance() async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      final data = await api.getUserDashboard();
+      if (mounted) {
+        ref.read(userDashboardStateProvider.notifier).state = data;
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchCoupons() async {
@@ -47,9 +59,25 @@ class _CouponsTabState extends ConsumerState<CouponsTab> {
   }
 
   Future<void> _redeemCoupon(int couponId, String brand, String code, int cost) async {
+    final sharedData = ref.read(userDashboardStateProvider);
+    final availableTokens = (sharedData?['totalTokens'] as num?)?.toInt() ?? 0;
+    if (availableTokens < cost) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Insufficient tokens. You have $availableTokens tokens, but this voucher requires $cost tokens.'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+      return;
+    }
+
     try {
       final api = ref.read(apiServiceProvider);
       await api.redeemCoupon(couponId);
+
+      // Trigger global synchronization across Home, Wallet, and all user tabs
+      ref.read(userDashboardReloadTriggerProvider.notifier).state++;
+      await _fetchUserBalance();
 
       if (mounted) {
         showDialog(
@@ -111,6 +139,14 @@ class _CouponsTabState extends ConsumerState<CouponsTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(userDashboardReloadTriggerProvider, (_, __) {
+      _fetchCoupons();
+      _fetchUserBalance();
+    });
+    final sharedData = ref.watch(userDashboardStateProvider);
+    final totalTokens = (sharedData?['totalTokens'] as num?)?.toInt() ?? 0;
+    final balanceTaka = sharedData?['walletBalanceTaka']?.toString() ?? (totalTokens / 4.0).toStringAsFixed(2);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: Column(
@@ -124,13 +160,40 @@ class _CouponsTabState extends ConsumerState<CouponsTab> {
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: AppTheme.primary),
                 tooltip: 'Refresh vouchers',
-                onPressed: _fetchCoupons,
+                onPressed: () {
+                  _fetchCoupons();
+                  _fetchUserBalance();
+                },
               ),
             ],
           ),
           const SizedBox(height: 2),
           const Text('Spend earned tokens on exclusive retail vouchers', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // Synced Available Balance Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.stars_rounded, color: Color(0xFF166534), size: 20),
+                    SizedBox(width: 8),
+                    Text('Available Balance:', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF166534), fontSize: 13)),
+                  ],
+                ),
+                Text('$totalTokens Tokens (≈ ৳$balanceTaka)', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF166534), fontSize: 14)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
 
           Expanded(
             child: _isLoading

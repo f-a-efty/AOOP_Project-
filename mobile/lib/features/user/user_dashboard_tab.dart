@@ -36,6 +36,7 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
           _dashboardData = data;
           _isLoading = false;
         });
+        ref.read(userDashboardStateProvider.notifier).state = data;
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
@@ -68,13 +69,15 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
   @override
   Widget build(BuildContext context) {
     ref.listen(userDashboardReloadTriggerProvider, (_, __) => _fetchDashboard());
+    final sharedData = ref.watch(userDashboardStateProvider);
+    final data = sharedData ?? _dashboardData;
     final stateUserName = ref.watch(userNameProvider) ?? 'Citizen Recycler';
-    final displayName = _dashboardData['fullName'] ?? stateUserName;
-    final totalTokens = _dashboardData['totalTokens']?.toString() ?? '0';
-    final balanceTaka = _dashboardData['walletBalanceTaka']?.toString() ?? '0.00';
-    final totalKg = _dashboardData['totalPlasticKg']?.toString() ?? '0.00';
-    final co2Kg = _dashboardData['co2PreventedKg']?.toString() ?? '0.00';
-    final loyalty = _dashboardData['loyaltyLevel'] ?? 'Eco Buddy';
+    final displayName = data['fullName'] ?? stateUserName;
+    final totalTokens = data['totalTokens']?.toString() ?? '0';
+    final balanceTaka = data['walletBalanceTaka']?.toString() ?? '0.00';
+    final totalKg = data['totalPlasticKg']?.toString() ?? '0.00';
+    final co2Kg = data['co2PreventedKg']?.toString() ?? '0.00';
+    final loyalty = data['loyaltyLevel'] ?? 'Eco Buddy';
 
     return RefreshIndicator(
       onRefresh: _refreshAll,

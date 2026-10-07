@@ -21,9 +21,14 @@ public class WalletTransaction {
     @Column(name = "transaction_id")
     private Long transactionId;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    public Long getUserId() {
+        return user != null ? user.getUserId() : null;
+    }
 
     @Column(name = "transaction_type", nullable = false, length = 30)
     private String transactionType;

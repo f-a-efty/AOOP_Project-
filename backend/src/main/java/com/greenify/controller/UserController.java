@@ -85,7 +85,20 @@ public class UserController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody WithdrawRequest request) {
-        return ResponseEntity.ok(walletService.withdrawToBkash(principal.getUserId(), request, idempotencyKey));
+        var tx = walletService.withdrawToBkash(principal.getUserId(), request, idempotencyKey);
+        User user = userRepository.findById(principal.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User profile not found."));
+        return ResponseEntity.ok(Map.of(
+                "transactionId", tx.getTransactionId(),
+                "transactionType", tx.getTransactionType(),
+                "tokensDeducted", request.getTokens(),
+                "cashDelta", tx.getCashDelta(),
+                "totalTokens", user.getTotalTokens(),
+                "walletBalanceTaka", user.getWalletBalance(),
+                "status", tx.getStatus(),
+                "bkashTrxId", tx.getBkashTrxId() != null ? tx.getBkashTrxId() : "",
+                "success", "Completed".equalsIgnoreCase(tx.getStatus())
+        ));
     }
 
     @GetMapping("/coupons")
@@ -97,7 +110,19 @@ public class UserController {
     public ResponseEntity<?> redeemCoupon(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long couponId) {
-        return ResponseEntity.ok(couponService.redeemCoupon(principal.getUserId(), couponId));
+        var redemption = couponService.redeemCoupon(principal.getUserId(), couponId);
+        User user = userRepository.findById(principal.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User profile not found."));
+        return ResponseEntity.ok(Map.of(
+                "redemptionId", redemption.getRedemptionId(),
+                "couponId", couponId,
+                "promoCode", redemption.getCoupon().getPromoCode(),
+                "discountPercentage", redemption.getCoupon().getDiscountPercentage(),
+                "brandName", redemption.getCoupon().getBrandName(),
+                "totalTokens", user.getTotalTokens(),
+                "walletBalanceTaka", user.getWalletBalance(),
+                "success", true
+        ));
     }
 
     private final SmartBoothRepository boothRepository;

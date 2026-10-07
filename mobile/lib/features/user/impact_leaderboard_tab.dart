@@ -88,7 +88,9 @@ class _ImpactLeaderboardTabState extends ConsumerState<ImpactLeaderboardTab> {
                         final name = u['fullName']?.toString() ?? 'Eco Hero';
                         final phone = u['phoneNumber']?.toString() ?? '';
                         final tokens = (u['totalTokens'] as num?)?.toInt() ?? 0;
-                        final kg = (tokens / 100.0).toStringAsFixed(1);
+                        final kg = u['totalPlasticKg'] != null
+                            ? ((u['totalPlasticKg'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)
+                            : (tokens / 100.0).toStringAsFixed(1);
                         final level = u['loyaltyLevel']?.toString() ?? 'Eco Citizen';
                         final isCurrentUser = currentPhone.isNotEmpty && phone.contains(currentPhone);
 
