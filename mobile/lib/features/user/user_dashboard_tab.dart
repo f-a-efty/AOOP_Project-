@@ -5,7 +5,9 @@ import '../../core/theme/app_theme.dart';
 import '../../main.dart';
 
 class UserDashboardTab extends ConsumerStatefulWidget {
-  const UserDashboardTab({super.key});
+  final void Function(int index)? onNavigateToTab;
+
+  const UserDashboardTab({super.key, this.onNavigateToTab});
 
   @override
   ConsumerState<UserDashboardTab> createState() => _UserDashboardTabState();
@@ -14,11 +16,14 @@ class UserDashboardTab extends ConsumerStatefulWidget {
 class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
   bool _isLoading = false;
   Map<String, dynamic> _dashboardData = {};
+  Map<String, dynamic>? _aiAdvice;
+  bool _isLoadingAdvice = false;
 
   @override
   void initState() {
     super.initState();
     _fetchDashboard();
+    _fetchAdvice();
   }
 
   Future<void> _fetchDashboard() async {
@@ -37,6 +42,29 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
     }
   }
 
+  Future<void> _fetchAdvice() async {
+    setState(() => _isLoadingAdvice = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final advice = await api.getCitizenAdvice();
+      if (mounted) {
+        setState(() {
+          _aiAdvice = advice;
+          _isLoadingAdvice = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingAdvice = false);
+    }
+  }
+
+  Future<void> _refreshAll() async {
+    await Future.wait([
+      _fetchDashboard(),
+      _fetchAdvice(),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(userDashboardReloadTriggerProvider, (_, __) => _fetchDashboard());
@@ -49,7 +77,7 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
     final loyalty = _dashboardData['loyaltyLevel'] ?? 'Eco Buddy';
 
     return RefreshIndicator(
-      onRefresh: _fetchDashboard,
+      onRefresh: _refreshAll,
       color: AppTheme.primary,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 96.0),
@@ -143,9 +171,115 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
                 _buildMetricCard('CO2 Prevented', '$co2Kg kg', '1.5 kg CO2 / kg', Icons.cloud_done_rounded, AppTheme.primaryLight),
               ],
             ),
+            const SizedBox(height: 20),
+
+            // Gemini AI Eco Advisor Card
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF064E3B), Color(0xFF047857)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF047857).withValues(alpha: 0.25),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(18.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFDE047), size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'AI Eco-Advisor',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _aiAdvice?['isLiveAi'] == true ? Icons.bolt_rounded : Icons.eco_outlined,
+                              color: const Color(0xFFFDE047),
+                              size: 13,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isLoadingAdvice
+                                  ? 'Thinking...'
+                                  : (_aiAdvice?['isLiveAi'] == true ? 'Gemini Live' : 'Eco Intelligence'),
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _aiAdvice?['headline']?.toString() ?? 'Dhaka Green Champion',
+                    style: const TextStyle(color: Color(0xFFFDE047), fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _aiAdvice?['advice']?.toString() ??
+                        'Every clean bottle you recycle directly preserves Dhaka from urban waterlogging and protects our vital river ecosystems.',
+                    style: const TextStyle(color: Color(0xFFECFDF5), fontSize: 13, height: 1.4),
+                  ),
+                  if (_aiAdvice?['dailyTip'] != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFFDE047), size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Tip: ${_aiAdvice!['dailyTip']}',
+                              style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             const SizedBox(height: 22),
 
-            // Quick Actions Banner with Perfectly Centered Icon & Tile
+            // Quick Actions Banner
             const Text(
               'Quick Deposit & Cashout',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
@@ -168,12 +302,40 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
                 subtitle: const Text('Scan dynamic QR code at any nearby booth to deposit', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.muted),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Go to "Deposit" tab below to scan booth scale QR code.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  if (widget.onNavigateToTab != null) {
+                    widget.onNavigateToTab!(1);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Go to "Deposit" tab below to scan booth scale QR code.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.account_balance_wallet_rounded, color: AppTheme.accent, size: 24),
+                ),
+                title: const Text('Redeem Tokens for Cash / bKash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Withdraw wallet balance directly to bKash or get discount coupons', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.muted),
+                onTap: () {
+                  if (widget.onNavigateToTab != null) {
+                    widget.onNavigateToTab!(2);
+                  }
                 },
               ),
             ),

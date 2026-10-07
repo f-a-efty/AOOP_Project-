@@ -20,13 +20,21 @@ class UserHomeScreen extends ConsumerStatefulWidget {
 class _UserHomeScreenState extends ConsumerState<UserHomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _tabs = const [
-    UserDashboardTab(),
-    QrScannerTab(),
-    WalletCashoutTab(),
-    CouponsTab(),
-    ImpactLeaderboardTab(),
-  ];
+  late final List<Widget> _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = [
+      UserDashboardTab(
+        onNavigateToTab: (index) => setState(() => _currentIndex = index),
+      ),
+      const QrScannerTab(),
+      const WalletCashoutTab(),
+      const CouponsTab(),
+      const ImpactLeaderboardTab(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

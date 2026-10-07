@@ -60,6 +60,21 @@ public class UserController {
         ));
     }
 
+    private final com.greenify.service.GeminiService geminiService;
+
+    @GetMapping("/me/ai/advice")
+    public ResponseEntity<?> getCitizenAdvice(@AuthenticationPrincipal UserPrincipal principal) {
+        User user = userRepository.findById(principal.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User profile not found."));
+        BigDecimal totalWeightKg = depositRepository.getTotalWeightKgByUserId(user.getUserId());
+        return ResponseEntity.ok(geminiService.getCitizenEcoAdvice(
+                user.getFullName(),
+                totalWeightKg,
+                user.getTotalTokens(),
+                user.getLoyaltyLevel() != null ? user.getLoyaltyLevel() : "Eco Buddy"
+        ));
+    }
+
     @GetMapping("/me/transactions")
     public ResponseEntity<?> getTransactions(@AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(walletService.getUserTransactionHistory(principal.getUserId()));

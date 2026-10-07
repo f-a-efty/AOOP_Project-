@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../main.dart';
 
 class CollectionHistoryTab extends ConsumerStatefulWidget {
   const CollectionHistoryTab({super.key});
@@ -38,6 +39,7 @@ class _CollectionHistoryTabState extends ConsumerState<CollectionHistoryTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(companyDataReloadTriggerProvider, (_, __) => _fetchCollections());
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: Column(
@@ -71,7 +73,7 @@ class _CollectionHistoryTabState extends ConsumerState<CollectionHistoryTab> {
                         final booth = c['booth'] as Map<String, dynamic>? ?? {};
                         final boothCode = booth['boothCode']?.toString() ?? c['boothCode']?.toString() ?? 'BTH-DH-001';
                         final loc = booth['locationAddress']?.toString() ?? c['locationAddress']?.toString() ?? 'Dhanmondi Lake Park';
-                        final weight = c['weightCollectedKg']?.toString() ?? c['weight']?.toString() ?? '98.50';
+                        final weight = c['netWeightKg']?.toString() ?? c['weightCollectedKg']?.toString() ?? c['weight']?.toString() ?? '98.50';
                         final grade = c['plasticGrade']?.toString() ?? 'PET 100% Sorted';
                         final date = c['collectedAt'] != null ? c['collectedAt'].toString().split('T').first : '2026-09-29';
 

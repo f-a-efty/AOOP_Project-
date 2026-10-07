@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../main.dart';
 
 class SmartBoothsTab extends ConsumerStatefulWidget {
   const SmartBoothsTab({super.key});
@@ -82,6 +83,7 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
         });
 
         _fetchBooths();
+        ref.read(companyDataReloadTriggerProvider.notifier).state++;
 
         showDialog(
           context: context,
@@ -781,6 +783,7 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
 
   static const List<Map<String, dynamic>> _fallbackBooths = [
     {
+      'boothId': 1,
       'boothCode': 'BTH-DH-001',
       'locationAddress': 'Dhanmondi Lake Park Entrance, Road 8, Dhaka',
       'latitude': 23.7461,
@@ -791,6 +794,7 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
       'sensorStatus': 'Online'
     },
     {
+      'boothId': 2,
       'boothCode': 'BTH-DH-002',
       'locationAddress': 'Mirpur 10 Bus Stand Roundabout, Dhaka',
       'latitude': 23.8069,
@@ -801,6 +805,7 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
       'sensorStatus': 'Online'
     },
     {
+      'boothId': 3,
       'boothCode': 'BTH-DH-003',
       'locationAddress': 'Uttara Sector 3 Park, Road 4, Dhaka',
       'latitude': 23.8690,
@@ -811,6 +816,7 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
       'sensorStatus': 'Online'
     },
     {
+      'boothId': 4,
       'boothCode': 'BTH-DH-004',
       'locationAddress': 'Gulshan 2 DCC Market Plaza, Dhaka',
       'latitude': 23.7948,
@@ -821,6 +827,7 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
       'sensorStatus': 'Online'
     },
     {
+      'boothId': 5,
       'boothCode': 'BTH-DH-005',
       'locationAddress': 'Banani Chairman Bari Bus Stop, Dhaka',
       'latitude': 23.7937,
@@ -831,6 +838,7 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
       'sensorStatus': 'Online'
     },
     {
+      'boothId': 6,
       'boothCode': 'BTH-DH-006',
       'locationAddress': 'Mohammadpur Town Hall Market, Dhaka',
       'latitude': 23.7588,

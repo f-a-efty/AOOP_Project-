@@ -201,7 +201,7 @@ class _CompanyRegisterScreenState extends State<CompanyRegisterScreen> {
     final name = _nameController.text.trim();
     final regNum = _regNumController.text.trim();
     final email = _emailController.text.trim();
-    final phone = _phoneController.text.trim();
+    final phone = _phoneController.text.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
     final address = _addressController.text.trim();
     final password = _passwordController.text.trim();
 

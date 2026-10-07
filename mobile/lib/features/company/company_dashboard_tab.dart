@@ -41,10 +41,46 @@ class _CompanyDashboardTabState extends ConsumerState<CompanyDashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(companyDataReloadTriggerProvider, (_, __) => _fetchDashboard());
+
     final companyName = ref.watch(userNameProvider) ?? 'ABC Recycling Ltd.';
     final boothCount = _dashboardData['assignedBoothsCount']?.toString() ?? '6';
     final totalPlastic = _dashboardData['totalPlasticCollectedKg']?.toString() ?? '324.5';
     final pickupReq = _dashboardData['pickupRequiredCount']?.toString() ?? '2';
+
+    final boothsRaw = _dashboardData['booths'] as List<dynamic>? ?? [];
+    int availableCount = 0;
+    int almostFullCount = 0;
+    int fullCount = 0;
+    int maintenanceCount = 0;
+    final List<Map<String, dynamic>> urgentBooths = [];
+
+    if (boothsRaw.isNotEmpty) {
+      for (final b in boothsRaw) {
+        final bMap = Map<String, dynamic>.from(b as Map);
+        final status = (bMap['boothStatus'] ?? 'Available').toString();
+        final currentKg = (bMap['currentWeightKg'] as num?)?.toDouble() ?? 0.0;
+        final capKg = (bMap['capacityKg'] as num?)?.toDouble() ?? 100.0;
+        final pct = capKg > 0 ? (currentKg / capKg) : 0.0;
+
+        if (status.toLowerCase().contains('full') && !status.toLowerCase().contains('almost')) {
+          fullCount++;
+          urgentBooths.add(bMap);
+        } else if (status.toLowerCase().contains('almost') || pct >= 0.75) {
+          almostFullCount++;
+          urgentBooths.add(bMap);
+        } else if (status.toLowerCase().contains('maintenance') || status.toLowerCase().contains('error')) {
+          maintenanceCount++;
+        } else {
+          availableCount++;
+        }
+      }
+    } else {
+      availableCount = 3;
+      almostFullCount = 1;
+      fullCount = 1;
+      maintenanceCount = 1;
+    }
 
     return RefreshIndicator(
       onRefresh: _fetchDashboard,
@@ -119,10 +155,10 @@ class _CompanyDashboardTabState extends ConsumerState<CompanyDashboardTab> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildStatusCount('Available', '3', const Color(0xFF166534)),
-                  _buildStatusCount('Almost Full', '1', AppTheme.warningAmber),
-                  _buildStatusCount('Full', '1', AppTheme.errorRed),
-                  _buildStatusCount('Maintenance', '1', Colors.grey),
+                  _buildStatusCount('Available', '$availableCount', const Color(0xFF166534)),
+                  _buildStatusCount('Almost Full', '$almostFullCount', AppTheme.warningAmber),
+                  _buildStatusCount('Full', '$fullCount', AppTheme.errorRed),
+                  _buildStatusCount('Maintenance', '$maintenanceCount', Colors.grey),
                 ],
               ),
             ),
@@ -217,9 +253,45 @@ class _CompanyDashboardTabState extends ConsumerState<CompanyDashboardTab> {
               ],
             ),
             const SizedBox(height: 10),
-            _buildPickupRequiredCard(context, 3, 'BTH-DH-003', 'Uttara Sector 3 Park, Road 4', 100.0, 100.0, 'Full', AppTheme.errorRed),
-            const SizedBox(height: 10),
-            _buildPickupRequiredCard(context, 2, 'BTH-DH-002', 'Mirpur 10 Bus Stand Roundabout', 82.0, 100.0, 'Almost Full', AppTheme.warningAmber),
+            if (urgentBooths.isNotEmpty) ...[
+              for (final b in urgentBooths) ...[
+                Builder(
+                  builder: (context) {
+                    final bStatus = (b['boothStatus'] ?? 'Full').toString().toLowerCase();
+                    final isStrictlyFull = bStatus.contains('full') && !bStatus.contains('almost');
+                    return _buildPickupRequiredCard(
+                      context,
+                      int.tryParse((b['boothId'] ?? b['id'] ?? 1).toString()) ?? 1,
+                      b['boothCode']?.toString() ?? 'BTH',
+                      b['locationAddress']?.toString() ?? 'Dhaka Area',
+                      (b['currentWeightKg'] as num?)?.toDouble() ?? 0.0,
+                      (b['capacityKg'] as num?)?.toDouble() ?? 100.0,
+                      b['boothStatus']?.toString() ?? 'Full',
+                      isStrictlyFull ? AppTheme.errorRed : AppTheme.warningAmber,
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+            ] else ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.check_circle_outline_rounded, color: AppTheme.primary, size: 24),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'All assigned smart dustbins are currently operating within safe capacity limits.',
+                          style: TextStyle(fontSize: 13, color: AppTheme.muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

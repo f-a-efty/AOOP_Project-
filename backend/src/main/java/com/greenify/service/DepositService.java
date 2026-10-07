@@ -28,6 +28,8 @@ public class DepositService {
     private final UserRepository userRepository;
     private final WalletTransactionRepository transactionRepository;
     private final PickupRequestRepository pickupRequestRepository;
+    private final com.greenify.repository.RecyclingCompanyRepository companyRepository;
+    private final com.greenify.repository.NotificationRepository notificationRepository;
     private final EconomicsService economicsService;
     private final PasswordEncoder passwordEncoder;
 
@@ -154,7 +156,7 @@ public class DepositService {
         sessionRepository.save(session);
 
         // Auto-trigger pickup request if Almost Full or Full and no active pickup request exists
-        if (("Almost Full".equalsIgnoreCase(newStatus) || "Full".equalsIgnoreCase(newStatus)) && booth.getCompany() != null) {
+        if ("Almost Full".equalsIgnoreCase(newStatus) || "Full".equalsIgnoreCase(newStatus)) {
             triggerAutomatedPickupRequest(booth, newStatus);
         }
 
@@ -183,20 +185,42 @@ public class DepositService {
         ).isPresent();
 
         if (!exists) {
+            com.greenify.entity.RecyclingCompany company = booth.getCompany();
+            if (company == null) {
+                company = companyRepository.findAll().stream().findFirst().orElse(null);
+                if (company != null) {
+                    booth.setCompany(company);
+                    boothRepository.save(booth);
+                }
+            }
+
             String priority = "Full".equalsIgnoreCase(boothStatus) ? "HIGH" : "NORMAL";
             String requestCode = "REQ-" + booth.getBoothCode().replace("BTH-", "") + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
 
             PickupRequest request = PickupRequest.builder()
                     .requestCode(requestCode)
                     .booth(booth)
-                    .company(booth.getCompany())
+                    .company(company)
                     .priority(priority)
                     .status("Pending")
-                    .payloadKgAtRequest(booth.getCurrentWeightKg())
+                    .payloadKgAtRequest(booth.getCurrentWeightKg() != null ? booth.getCurrentWeightKg() : BigDecimal.ZERO)
                     .build();
 
             pickupRequestRepository.save(request);
             log.info("Auto-generated pickup request {} for Booth {} (Priority: {})", requestCode, booth.getBoothCode(), priority);
+
+            if (company != null) {
+                notificationRepository.save(com.greenify.entity.Notification.builder()
+                        .recipientRole("COMPANY")
+                        .recipientId(company.getCompanyId())
+                        .title("Smart Booth Fill Alert: " + booth.getBoothCode())
+                        .message(String.format("Smart Booth %s at %s has reached %s capacity (%.1f kg). Pickup dispatch recommended.",
+                                booth.getBoothCode(), booth.getLocationAddress(), boothStatus,
+                                booth.getCurrentWeightKg() != null ? booth.getCurrentWeightKg().doubleValue() : 0.0))
+                        .category("Booth Full")
+                        .isRead(false)
+                        .build());
+            }
         }
     }
 
@@ -271,7 +295,7 @@ public class DepositService {
                 .build();
         transactionRepository.save(tx);
 
-        if (("Almost Full".equalsIgnoreCase(newStatus) || "Full".equalsIgnoreCase(newStatus)) && booth.getCompany() != null) {
+        if ("Almost Full".equalsIgnoreCase(newStatus) || "Full".equalsIgnoreCase(newStatus)) {
             triggerAutomatedPickupRequest(booth, newStatus);
         }
 
@@ -298,7 +322,7 @@ public class DepositService {
         booth.setBoothStatus(newStatus);
         SmartBooth saved = boothRepository.save(booth);
 
-        if (clampedPct >= 80.0 && booth.getCompany() != null) {
+        if (clampedPct >= 80.0) {
             triggerAutomatedPickupRequest(booth, newStatus);
         }
         log.info("Simulator set booth {} fill to {}% ({} kg). Status: {}", booth.getBoothCode(), clampedPct, newWeight, newStatus);

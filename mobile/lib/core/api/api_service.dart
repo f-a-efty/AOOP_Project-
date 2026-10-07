@@ -303,4 +303,9 @@ class ApiService {
     final res = await _dio.get('/me/transactions');
     return (res.data as List<dynamic>?) ?? [];
   }
+
+  Future<Map<String, dynamic>> getCitizenAdvice() async {
+    final res = await _dio.get('/me/ai/advice');
+    return (res.data as Map<String, dynamic>?) ?? {};
+  }
 }

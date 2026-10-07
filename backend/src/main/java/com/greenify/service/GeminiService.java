@@ -280,4 +280,126 @@ public class GeminiService {
         ));
         return result;
     }
+
+    public Map<String, Object> getCitizenEcoAdvice(
+            String citizenName,
+            BigDecimal plasticKg,
+            Integer tokens,
+            String loyaltyTier) {
+
+        BigDecimal safePlastic = plasticKg != null ? plasticKg : BigDecimal.ZERO;
+        int safeTokens = tokens != null ? tokens : 0;
+        String safeTier = (loyaltyTier != null && !loyaltyTier.isEmpty()) ? loyaltyTier : "Eco Buddy";
+        String safeName = (citizenName != null && !citizenName.isEmpty()) ? citizenName : "Greenify Citizen";
+
+        String apiKey = resolveApiKey();
+        if (apiKey != null && !apiKey.isEmpty()) {
+            try {
+                return callGeminiCitizenAdviceApi(apiKey, safeName, safePlastic, safeTokens, safeTier);
+            } catch (Exception e) {
+                log.warn("Gemini advice failed for citizen {}, using fallback: {}", safeName, e.getMessage());
+            }
+        }
+        return buildScientificCitizenAdvice(safeName, safePlastic, safeTokens, safeTier);
+    }
+
+    private Map<String, Object> callGeminiCitizenAdviceApi(
+            String apiKey,
+            String name,
+            BigDecimal plasticKg,
+            int tokens,
+            String loyaltyTier) throws Exception {
+
+        String prompt = String.format("""
+                You are Greenify's friendly AI Eco-Advisor for Dhaka city, Bangladesh.
+                Citizen Name: %s
+                Total Plastic Recycled: %.2f kg
+                Tokens Earned: %d
+                Loyalty Tier: %s
+
+                Provide an inspiring, hyper-personalized status report and practical zero-waste advice specifically tailored to urban Dhaka living (mentioning areas like Dhanmondi, Gulshan, Uttara, Mirpur, Hatirjheel, etc.).
+
+                Return ONLY a valid JSON object without markdown fences, with these exact keys:
+                {
+                  "headline": "A catchy, motivating 4-6 word praise headline (e.g. Dhaka Eco Champion, Green Guardian of Dhanmondi)",
+                  "advice": "2-3 uplifting sentences acknowledging their exact recycled amount and practical next steps for everyday plastic reduction.",
+                  "dailyTip": "1 practical zero-waste tip applicable to daily life in Dhaka (e.g. refilling water bottles, rejecting single-use polythene bags at kacha bazaar).",
+                  "nextMilestone": "Short phrase describing their next achievable milestone or badge.",
+                  "co2OffsetKg": number (exact numerical kg of CO2 offset calculated as plasticKg * 1.5)
+                }
+                """,
+                name,
+                plasticKg.doubleValue(),
+                tokens,
+                loyaltyTier
+        );
+
+        String requestBody = objectMapper.writeValueAsString(Map.of(
+                "contents", List.of(
+                        Map.of("parts", List.of(
+                                Map.of("text", prompt)
+                        ))
+                ),
+                "generationConfig", Map.of(
+                        "temperature", 0.7,
+                        "responseMimeType", "application/json"
+                )
+        ));
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        Exception lastException = null;
+        for (String model : CANDIDATE_MODELS) {
+            String url = String.format(GEMINI_API_URL_TEMPLATE, model, apiKey);
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                        .timeout(Duration.ofSeconds(15))
+                        .build();
+
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    JsonNode root = objectMapper.readTree(response.body());
+                    JsonNode candidate = root.path("candidates").get(0);
+                    if (candidate != null) {
+                        String rawText = candidate.path("content").path("parts").get(0).path("text").asText();
+                        rawText = rawText.replaceAll("(?s)^```json\\s*", "").replaceAll("(?s)```$", "").trim();
+                        Map<String, Object> parsed = objectMapper.readValue(rawText, Map.class);
+                        parsed.put("isLiveAi", true);
+                        parsed.put("modelUsed", model);
+                        return parsed;
+                    }
+                }
+            } catch (Exception e) {
+                lastException = e;
+            }
+        }
+        if (lastException != null) throw lastException;
+        throw new RuntimeException("All candidate models failed for citizen advice.");
+    }
+
+    private Map<String, Object> buildScientificCitizenAdvice(
+            String name,
+            BigDecimal plasticKg,
+            int tokens,
+            String loyaltyTier) {
+        double kg = plasticKg.doubleValue();
+        double co2 = Math.round(kg * 1.50 * 10.0) / 10.0;
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("isLiveAi", false);
+        result.put("modelUsed", "Scientific Heuristic (Offline Fallback)");
+        result.put("headline", "Dhaka Green Warrior");
+        result.put("advice", String.format(
+                "You have personally diverted %.2f kg of plastic from Dhaka's landfills and drainage canals! Keep up the momentum by encouraging friends and neighbors in your area to deposit clean PET bottles.",
+                kg
+        ));
+        result.put("dailyTip", "Say no to single-use polythene bags during your daily grocery and bazaar visits; keep a reusable jute or canvas tote handy.");
+        result.put("nextMilestone", kg < 10.0 ? "Reach 10 kg to unlock Silver Eco-Pioneer badge!" : "Reach 50 kg to become a Gold City Guardian!");
+        result.put("co2OffsetKg", co2);
+        return result;
+    }
 }

@@ -79,7 +79,7 @@ class _AdminFinanceTabState extends ConsumerState<AdminFinanceTab> {
               setState(() => _isSaving = true);
               try {
                 final api = ref.read(apiServiceProvider);
-                await api.updateEconomicsRule('tokens-per-kg', newRate.toString());
+                await api.updateEconomicsRule('tokens_per_kg', newRate.toString());
                 if (mounted) {
                   setState(() {
                     _tokensPerKg = newRate;

@@ -418,7 +418,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
   }
 
   Future<void> _handleLogin() async {
-    final username = _phoneController.text.trim();
+    final rawUsername = _phoneController.text.trim();
+    final username = rawUsername.contains('@') ? rawUsername : rawUsername.replaceAll(RegExp(r'[\s\-\(\)]'), '');
     final password = _passwordController.text.trim();
 
     if (username.isEmpty) {

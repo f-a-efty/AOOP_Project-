@@ -121,14 +121,15 @@ public class AdminService {
 
     @Transactional
     public void updateEconomicsConfig(String key, String value, String adminEmail) {
-        SystemConfig config = configRepository.findById(key)
-                .orElseGet(() -> SystemConfig.builder().configKey(key).description("Admin configured").build());
+        String normalizedKey = key != null ? key.trim().replace('-', '_') : "";
+        SystemConfig config = configRepository.findById(normalizedKey)
+                .orElseGet(() -> SystemConfig.builder().configKey(normalizedKey).description("Admin configured").build());
 
         String oldValue = config.getConfigValue();
         config.setConfigValue(value);
         configRepository.save(config);
 
-        logAudit(adminEmail, "UPDATE_ECONOMICS_RULE", "Updated economics rule '" + key + "' from '" + oldValue + "' to '" + value + "'", "Finance");
+        logAudit(adminEmail, "UPDATE_ECONOMICS_RULE", "Updated economics rule '" + normalizedKey + "' from '" + oldValue + "' to '" + value + "'", "Finance");
     }
 
     public List<AuditLog> getAuditLogs() {
