@@ -199,8 +199,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                               child: const Text('Forgot Password?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                             ),
                           ),
+                        ] else ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3E8FF),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFD8B4FE)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF7E22CE)),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Admin Access: ID 420 | Password 123',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF7E22CE),
+                                    ),
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _phoneController.text = '420';
+                                      _passwordController.text = '123';
+                                    });
+                                  },
+                                  child: const Text(
+                                    'Auto-Fill',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF6B21A8),
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
                         // Animated Cool Press/Hover Login Button
                         _buildCoolButton(),
@@ -260,8 +303,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
         onTap: () {
           setState(() {
             _selectedRole = roleKey;
-            _phoneController.clear();
-            _passwordController.clear();
+            if (roleKey == 'ADMIN') {
+              _phoneController.text = '420';
+              _passwordController.text = '123';
+            } else {
+              if (_phoneController.text == '420') _phoneController.clear();
+              if (_passwordController.text == '123') _passwordController.clear();
+            }
           });
         },
         child: AnimatedContainer(
@@ -419,8 +467,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
 
   Future<void> _handleLogin() async {
     final rawUsername = _phoneController.text.trim();
-    final username = rawUsername.contains('@') ? rawUsername : rawUsername.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    final password = _passwordController.text.trim();
+    String username = rawUsername.contains('@') ? rawUsername : rawUsername.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    String password = _passwordController.text.trim();
+
+    // Auto-detect Admin shortcut regardless of selected tab
+    String effectiveRole = _selectedRole;
+    if (username == '420' || username == '0420' || username == '+880420' || username.toLowerCase() == 'admin' || username.toLowerCase() == 'admin420') {
+      effectiveRole = 'ADMIN';
+    }
+
+    if (effectiveRole == 'ADMIN') {
+      if (username.isEmpty) username = '420';
+      if (password.isEmpty) password = '123';
+    }
 
     if (username.isEmpty) {
       _showError(_selectedRole == 'ADMIN' ? 'Please enter admin number (420).' : 'Please enter your phone number or email.');
@@ -440,7 +499,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
         data: {
           'username': username,
           'password': password,
-          'targetRole': _selectedRole,
+          'targetRole': effectiveRole,
         },
       );
 
