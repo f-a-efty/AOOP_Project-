@@ -225,41 +225,35 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
                                             ],
                                           ),
                                         ),
-                                        Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
-                                                borderRadius: BorderRadius.circular(12),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isActive ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                isActive ? Icons.verified_rounded : Icons.block_rounded,
+                                                size: 13,
+                                                color: isActive ? const Color(0xFF166534) : AppTheme.errorRed,
                                               ),
-                                              child: Text(
+                                              const SizedBox(width: 4),
+                                              Text(
                                                 status,
                                                 style: TextStyle(
                                                   color: isActive ? const Color(0xFF166534) : AppTheme.errorRed,
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 10,
+                                                  fontSize: 11,
                                                 ),
                                               ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            InkWell(
-                                              borderRadius: BorderRadius.circular(8),
-                                              onTap: () => _toggleStatus(userId, name, status),
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                                child: Text(
-                                                  isActive ? 'Suspend' : 'Activate',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isActive ? AppTheme.errorRed : AppTheme.primary,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
