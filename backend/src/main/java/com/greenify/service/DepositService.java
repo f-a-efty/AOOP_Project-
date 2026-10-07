@@ -180,9 +180,9 @@ public class DepositService {
     }
 
     private void triggerAutomatedPickupRequest(SmartBooth booth, String boothStatus) {
-        boolean exists = pickupRequestRepository.findByBoothBoothIdAndStatusIn(
+        boolean exists = !pickupRequestRepository.findByBoothBoothIdAndStatusIn(
                 booth.getBoothId(), java.util.Arrays.asList("Pending", "Accepted", "Vehicle Assigned", "On Pickup")
-        ).isPresent();
+        ).isEmpty();
 
         if (!exists) {
             com.greenify.entity.RecyclingCompany company = booth.getCompany();

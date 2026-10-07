@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,10 +32,12 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
     _fetchBooths();
   }
 
-  Future<void> _fetchBooths() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _fetchBooths({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final api = ref.read(apiServiceProvider);
@@ -44,7 +47,16 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
           _booths = booths.isNotEmpty ? booths : _fallbackBooths;
           _isLoading = false;
           if (_booths.isNotEmpty) {
-            _selectedBooth ??= _booths[0] as Map<String, dynamic>;
+            if (_selectedBooth != null) {
+              final currentCode = _selectedBooth!['boothCode'];
+              final updated = _booths.firstWhere(
+                (b) => b['boothCode'] == currentCode,
+                orElse: () => _booths[0],
+              );
+              _selectedBooth = Map<String, dynamic>.from(updated as Map);
+            } else {
+              _selectedBooth = Map<String, dynamic>.from(_booths[0] as Map);
+            }
           }
         });
       }
@@ -53,7 +65,9 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
         setState(() {
           _booths = _fallbackBooths;
           _isLoading = false;
-          _selectedBooth ??= _fallbackBooths[0];
+          if (_booths.isNotEmpty) {
+            _selectedBooth ??= Map<String, dynamic>.from(_fallbackBooths[0]);
+          }
         });
       }
     }
@@ -82,8 +96,10 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
           _selectedBooth = Map<String, dynamic>.from(booth);
         });
 
-        _fetchBooths();
+        await _fetchBooths(silent: true);
         ref.read(companyDataReloadTriggerProvider.notifier).state++;
+
+        if (!mounted) return;
 
         showDialog(
           context: context,
@@ -133,8 +149,22 @@ class _SmartBoothsTabState extends ConsumerState<SmartBoothsTab> {
       }
     } catch (e) {
       if (mounted) {
+        String errorMsg = 'Failed to deploy pickup: $e';
+        if (e is DioException) {
+          if (e.response?.data is Map && e.response?.data['message'] != null) {
+            errorMsg = e.response!.data['message'].toString();
+          } else if (e.response?.statusCode == 403) {
+            errorMsg = 'Unauthorized: Please log in with a Recycler or Admin account to dispatch trucks.';
+          } else if (e.response?.statusCode != null) {
+            errorMsg = 'Server responded with error ${e.response?.statusCode}';
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to deploy pickup: $e'), backgroundColor: AppTheme.errorRed),
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } finally {

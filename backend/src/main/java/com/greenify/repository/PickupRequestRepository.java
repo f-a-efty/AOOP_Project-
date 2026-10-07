@@ -16,7 +16,7 @@ public interface PickupRequestRepository extends JpaRepository<PickupRequest, Lo
 
     List<PickupRequest> findByCompanyCompanyIdAndStatusOrderByPriorityDescCreatedAtAsc(Long companyId, String status);
 
-    Optional<PickupRequest> findByBoothBoothIdAndStatusIn(Long boothId, List<String> statuses);
+    List<PickupRequest> findByBoothBoothIdAndStatusIn(Long boothId, List<String> statuses);
 
     @Query("SELECT COUNT(p) FROM PickupRequest p WHERE p.company.companyId = :companyId AND p.status IN ('Pending', 'Accepted')")
     long countPendingPickupsForCompany(@Param("companyId") Long companyId);

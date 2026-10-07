@@ -149,9 +149,14 @@ public class PickupService {
         Vehicle vehicle = vehicleRepository.findByCompanyCompanyId(company.getCompanyId()).stream()
                 .findFirst()
                 .orElseGet(() -> {
+                    var allVehicles = vehicleRepository.findAll();
+                    if (!allVehicles.isEmpty()) {
+                        return allVehicles.get(0);
+                    }
+                    String uniqueNumber = "DH-TRUCK-" + finalCompany.getCompanyId() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
                     Vehicle v = Vehicle.builder()
                             .company(finalCompany)
-                            .vehicleNumber("DH-TRUCK-01")
+                            .vehicleNumber(uniqueNumber)
                             .vehicleType("Light Pickup Van (1.5 Ton)")
                             .driverName("Karim Ullah")
                             .driverPhone("+8801712000000")
@@ -166,25 +171,39 @@ public class PickupService {
         booth.setLastPickupDate(LocalDateTime.now());
         boothRepository.save(booth);
 
-        // 2. Find or create Completed PickupRequest
-        PickupRequest req = pickupRequestRepository.findByBoothBoothIdAndStatusIn(
+        // 2. Safely find or create Completed PickupRequest
+        List<PickupRequest> pendingReqs = pickupRequestRepository.findByBoothBoothIdAndStatusIn(
                 booth.getBoothId(), java.util.Arrays.asList("Pending", "Accepted", "Vehicle Assigned", "On Pickup")
-        ).orElseGet(() -> {
-            PickupRequest newReq = PickupRequest.builder()
-                    .requestCode("REQ-DISP-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+        );
+        PickupRequest req;
+        if (!pendingReqs.isEmpty()) {
+            req = pendingReqs.get(0);
+            req.setStatus("Completed");
+            req.setVehicle(vehicle);
+            req.setAcceptedAt(LocalDateTime.now());
+            req.setCompletedAt(LocalDateTime.now());
+            req = pickupRequestRepository.save(req);
+
+            for (int i = 1; i < pendingReqs.size(); i++) {
+                PickupRequest extra = pendingReqs.get(i);
+                extra.setStatus("Completed");
+                extra.setCompletedAt(LocalDateTime.now());
+                pickupRequestRepository.save(extra);
+            }
+        } else {
+            req = PickupRequest.builder()
+                    .requestCode("REQ-DISP-" + booth.getBoothCode().replace("BTH-", "") + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase())
                     .booth(booth)
                     .company(finalCompany)
+                    .vehicle(vehicle)
                     .priority("HIGH")
+                    .status("Completed")
                     .payloadKgAtRequest(collectedKg)
+                    .acceptedAt(LocalDateTime.now())
+                    .completedAt(LocalDateTime.now())
                     .build();
-            return pickupRequestRepository.save(newReq);
-        });
-
-        req.setStatus("Completed");
-        req.setVehicle(vehicle);
-        req.setAcceptedAt(LocalDateTime.now());
-        req.setCompletedAt(LocalDateTime.now());
-        req = pickupRequestRepository.save(req);
+            req = pickupRequestRepository.save(req);
+        }
 
         // 3. Record official collection
         Collection collection = Collection.builder()
