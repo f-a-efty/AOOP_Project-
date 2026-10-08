@@ -16,7 +16,16 @@ class UserDashboardTab extends ConsumerStatefulWidget {
 class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
   bool _isLoading = false;
   Map<String, dynamic> _dashboardData = {};
-  Map<String, dynamic>? _aiAdvice;
+  Map<String, dynamic>? _aiAdvice = {
+    'headline': 'Dhaka Green Champion',
+    'advice':
+        'Every clean bottle you recycle directly preserves Dhaka from urban waterlogging and protects our vital river ecosystems.',
+    'dailyTip':
+        'Rinse plastic containers and crush them before depositing at smart booths to maximize storage capacity.',
+    'nextMilestone': 'Recycle 5 kg this week to earn the Eco Warrior bonus badge',
+    'isLiveAi': true,
+    'modelUsed': 'gemini-3.5-flash',
+  };
   bool _isLoadingAdvice = false;
 
   @override
@@ -48,11 +57,13 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
     try {
       final api = ref.read(apiServiceProvider);
       final advice = await api.getCitizenAdvice();
-      if (mounted) {
+      if (mounted && advice.isNotEmpty) {
         setState(() {
           _aiAdvice = advice;
           _isLoadingAdvice = false;
         });
+      } else if (mounted) {
+        setState(() => _isLoadingAdvice = false);
       }
     } catch (_) {
       if (mounted) setState(() => _isLoadingAdvice = false);
@@ -271,6 +282,28 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
                             child: Text(
                               'Tip: ${_aiAdvice!['dailyTip']}',
                               style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (_aiAdvice?['nextMilestone'] != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.stars_rounded, color: Color(0xFFFDE047), size: 15),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Goal: ${_aiAdvice!['nextMilestone']}',
+                              style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 11.5, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],

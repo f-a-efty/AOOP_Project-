@@ -376,7 +376,7 @@ class _AdminMoreTabState extends ConsumerState<AdminMoreTab> {
               ),
               child: Column(
                 children: [
-                  _buildEngineSpecRow('Active Model', 'Gemini 3.8 Flash'),
+                  _buildEngineSpecRow('Active Model', 'Gemini 3.5 Flash (Live & Fast)'),
                   const Divider(height: 12, thickness: 0.5),
                   _buildEngineSpecRow('Key Management', 'Secure Backend Server (Ready)'),
                   const Divider(height: 12, thickness: 0.5),
@@ -447,7 +447,7 @@ class _AdminMoreTabState extends ConsumerState<AdminMoreTab> {
         _buildAdminRow(
           context,
           'Google Gemini AI Engine',
-          'Live cloud neural model: Gemini 3.8 Flash (Backend Integrated)',
+          'Live cloud neural model: Gemini 3.5 Flash (Backend Integrated)',
           Icons.auto_awesome_rounded,
           () => _showGeminiStatusDialog(context),
         ),
