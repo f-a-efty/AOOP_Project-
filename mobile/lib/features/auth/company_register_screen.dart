@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
 
 class CompanyRegisterScreen extends StatefulWidget {
@@ -19,9 +20,9 @@ class _CompanyRegisterScreenState extends State<CompanyRegisterScreen> {
   final _passwordController = TextEditingController();
 
   final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://localhost:8080/api/v1',
-    connectTimeout: const Duration(seconds: 8),
-    receiveTimeout: const Duration(seconds: 8),
+    baseUrl: defaultApiBaseUrl,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
     headers: {'Content-Type': 'application/json'},
   ));
 

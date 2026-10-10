@@ -16,16 +16,7 @@ class UserDashboardTab extends ConsumerStatefulWidget {
 class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
   bool _isLoading = false;
   Map<String, dynamic> _dashboardData = {};
-  Map<String, dynamic>? _aiAdvice = {
-    'headline': 'Dhaka Green Champion',
-    'advice':
-        'Every clean bottle you recycle directly preserves Dhaka from urban waterlogging and protects our vital river ecosystems.',
-    'dailyTip':
-        'Rinse plastic containers and crush them before depositing at smart booths to maximize storage capacity.',
-    'nextMilestone': 'Recycle 5 kg this week to earn the Eco Warrior bonus badge',
-    'isLiveAi': true,
-    'modelUsed': 'gemini-3.5-flash',
-  };
+  Map<String, dynamic>? _aiAdvice;
   bool _isLoadingAdvice = false;
 
   @override
@@ -254,60 +245,93 @@ class _UserDashboardTabState extends ConsumerState<UserDashboardTab> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _aiAdvice?['headline']?.toString() ?? 'Dhaka Green Champion',
-                    style: const TextStyle(color: Color(0xFFFDE047), fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _aiAdvice?['advice']?.toString() ??
-                        'Every clean bottle you recycle directly preserves Dhaka from urban waterlogging and protects our vital river ecosystems.',
-                    style: const TextStyle(color: Color(0xFFECFDF5), fontSize: 13, height: 1.4),
-                  ),
-                  if (_aiAdvice?['dailyTip'] != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFFDE047), size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Tip: ${_aiAdvice!['dailyTip']}',
-                              style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.3),
-                            ),
+                  if (_aiAdvice == null && _isLoadingAdvice) ...[
+                    const SizedBox(height: 14),
+                    Row(
+                      children: const [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Connecting to Gemini for personalized zero-waste guidance...',
+                            style: TextStyle(color: Color(0xFFD1FAE5), fontSize: 12.5),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                  if (_aiAdvice?['nextMilestone'] != null) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.stars_rounded, color: Color(0xFFFDE047), size: 15),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Goal: ${_aiAdvice!['nextMilestone']}',
-                              style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 11.5, fontWeight: FontWeight.w600),
+                  ] else if (_aiAdvice != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _aiAdvice!['headline']?.toString() ?? 'Dhaka Green Champion',
+                      style: const TextStyle(color: Color(0xFFFDE047), fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _aiAdvice!['advice']?.toString() ?? '',
+                      style: const TextStyle(color: Color(0xFFECFDF5), fontSize: 13, height: 1.4),
+                    ),
+                    if (_aiAdvice!['dailyTip'] != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFFDE047), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Tip: ${_aiAdvice!['dailyTip']}',
+                                style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.3),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                    ],
+                    if (_aiAdvice!['nextMilestone'] != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.stars_rounded, color: Color(0xFFFDE047), size: 15),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Goal: ${_aiAdvice!['nextMilestone']}',
+                                style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 11.5, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'AI Zero-Waste Advisor',
+                      style: TextStyle(color: Color(0xFFFDE047), fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Recycle clean plastic bottles at any smart booth to generate personalized AI eco-advice and Dhaka environmental milestones.',
+                      style: TextStyle(color: Color(0xFFECFDF5), fontSize: 13, height: 1.4),
                     ),
                   ],
                 ],

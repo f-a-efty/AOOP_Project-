@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/api/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../main.dart';
 
@@ -21,9 +22,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
 
   final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://localhost:8080/api/v1',
-    connectTimeout: const Duration(seconds: 5),
-    receiveTimeout: const Duration(seconds: 5),
+    baseUrl: defaultApiBaseUrl,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
     headers: {'Content-Type': 'application/json'},
   ));
 

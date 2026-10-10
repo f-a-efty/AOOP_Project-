@@ -1,6 +1,15 @@
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../main.dart';
+
+String get defaultApiBaseUrl {
+  if (!kIsWeb && Platform.isAndroid) {
+    return 'http://10.0.2.2:8080/api/v1';
+  }
+  return 'http://localhost:8080/api/v1';
+}
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   final token = ref.watch(authTokenProvider);
@@ -21,9 +30,9 @@ class ApiService {
     }
 
     _dio = Dio(BaseOptions(
-      baseUrl: 'http://localhost:8080/api/v1',
-      connectTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 8),
+      baseUrl: defaultApiBaseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
       headers: headers,
     ));
   }

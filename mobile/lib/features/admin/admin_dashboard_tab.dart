@@ -17,28 +17,9 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
   bool _isAiLoading = false;
   Map<String, dynamic> _metrics = {};
   List<dynamic> _pendingCompanies = [];
-  Map<String, dynamic>? _aiPrediction = {
-    'summary':
-        'By intercepting and processing 847 kg of high-density and PET plastic across smart booths in Dhaka, Greenify actively prevents critical storm drainage blockages, mitigates monsoon waterlogging, and reduces the municipal carbon footprint.',
-    'co2AvoidedKg': '1524.6',
-    'crudeOilSavedLiters': '1609.3',
-    'energySavedKwh': '4887.2',
-    'landfillSpaceSavedM3': '6.27',
-    'drainageAndCanalBenefit':
-        'Preventing non-biodegradable plastics from entering Dhaka storm drains directly relieves pressure on WASA culverts, significantly reducing waterlogging in Dhanmondi, Gulshan, and Mirpur while protecting Hatirjheel and the Buriganga River.',
-    'sixMonthForecast':
-        'Projected to divert over 5.1 metric tons of plastic waste over the next 6 months, keeping ~38 m³ of compacted plastic out of Matuail landfill.',
-    'oneYearForecast':
-        'With 2x smart booth expansion across Dhaka North and South, annual collection will surpass 20 metric tons, saving over 117,000 kWh of energy.',
-    'recommendations': [
-      'Deploy smart IoT booths near high-runoff catchments surrounding Hatirjheel and Dhanmondi Lake.',
-      'Incentivize registered citizen recyclers with seasonal monsoon recovery tokens.',
-      'Synchronize booth fill telemetry routes with municipal collection trucks.',
-      'Partner with certified recycling enterprises for circular economy production.',
-    ],
-    'isLiveAi': true,
-    'modelUsed': 'gemini-3.5-flash',
-  };
+  Map<String, dynamic>? _aiPrediction;
+  String? _aiError;
+  final _simulatorQueryController = TextEditingController();
   List<dynamic> _activity = [];
 
   final List<Map<String, dynamic>> _sampleActivities = [
@@ -69,6 +50,12 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
     _fetchAiPrediction();
   }
 
+  @override
+  void dispose() {
+    _simulatorQueryController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchDashboard() async {
     setState(() => _isLoading = true);
     try {
@@ -92,21 +79,41 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
     }
   }
 
-  Future<void> _fetchAiPrediction() async {
-    setState(() => _isAiLoading = true);
+  Future<void> _fetchAiPrediction({String? customQuery}) async {
+    setState(() {
+      _isAiLoading = true;
+      _aiError = null;
+    });
     try {
       final api = ref.read(apiServiceProvider);
-      final prediction = await api.getEnvironmentalPrediction();
+      final prediction = customQuery != null && customQuery.trim().isNotEmpty
+          ? await api.generateEnvironmentalPrediction(query: customQuery.trim())
+          : await api.getEnvironmentalPrediction();
       if (mounted && prediction.isNotEmpty) {
         setState(() {
           _aiPrediction = prediction;
           _isAiLoading = false;
+          _aiError = null;
         });
+        if (customQuery != null && customQuery.trim().isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gemini scenario generated! (${prediction['modelUsed'] ?? 'Gemini Flash'})'),
+              backgroundColor: const Color(0xFF2E6027),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       } else if (mounted) {
         setState(() => _isAiLoading = false);
       }
     } catch (e) {
-      if (mounted) setState(() => _isAiLoading = false);
+      if (mounted) {
+        setState(() {
+          _isAiLoading = false;
+          _aiError = e.toString();
+        });
+      }
     }
   }
 
@@ -521,8 +528,75 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Prediction Metrics 4-Grid (CO2, Oil, Energy, Landfill)
-                  if (_aiPrediction != null) ...[
+                  // Dynamic AI States
+                  if (_aiPrediction == null && _isAiLoading) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Consulting Google Gemini Neural Engine...',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Analyzing live Dhaka municipal plastic collection & hydrological data...',
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (_aiPrediction == null && _aiError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.cloud_off_rounded, color: Colors.redAccent, size: 32),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Could not connect to Gemini AI Engine',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _aiError!,
+                            style: const TextStyle(color: Color(0xFFFDA4AF), fontSize: 11.5),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 14),
+                          ElevatedButton.icon(
+                            onPressed: () => _fetchAiPrediction(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8B5CF6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('Retry Live AI Connection'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (_aiPrediction != null) ...[
+                    // Prediction Metrics 4-Grid (CO2, Oil, Energy, Landfill)
                     GridView.count(
                       crossAxisCount: 2,
                       shrinkWrap: true,
@@ -533,28 +607,28 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
                       children: [
                         _buildAiImpactCard(
                           'CO2 Avoided',
-                          '${_aiPrediction!['co2AvoidedKg'] ?? '329.25'} kg',
+                          '${_aiPrediction!['co2AvoidedKg'] ?? '0'} kg',
                           'Emissions Prevented',
                           Icons.cloud_off_rounded,
                           const Color(0xFF34D399),
                         ),
                         _buildAiImpactCard(
                           'Crude Oil Saved',
-                          '${_aiPrediction!['crudeOilSavedLiters'] ?? '548.75'} L',
+                          '${_aiPrediction!['crudeOilSavedLiters'] ?? '0'} L',
                           'Fossil Resource Conserved',
                           Icons.oil_barrel_rounded,
                           const Color(0xFFFBBF24),
                         ),
                         _buildAiImpactCard(
                           'Clean Energy',
-                          '${_aiPrediction!['energySavedKwh'] ?? '1266.52'} kWh',
+                          '${_aiPrediction!['energySavedKwh'] ?? '0'} kWh',
                           'Grid Power Conserved',
                           Icons.bolt_rounded,
                           const Color(0xFF60A5FA),
                         ),
                         _buildAiImpactCard(
                           'Landfill Saved',
-                          '${_aiPrediction!['landfillSpaceSavedM3'] ?? '1.25'} m³',
+                          '${_aiPrediction!['landfillSpaceSavedM3'] ?? '0'} m³',
                           'Landfill Volume Diverted',
                           Icons.landscape_rounded,
                           const Color(0xFFA78BFA),
@@ -704,10 +778,95 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 14),
                     ],
-                  ],
 
-                  const SizedBox(height: 16),
+                    // Interactive Gemini Scenario Simulator Section
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.4)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.tune_rounded, color: Color(0xFFA78BFA), size: 16),
+                              SizedBox(width: 6),
+                              Text(
+                                'Interactive Scenario Simulator',
+                                style: TextStyle(color: Color(0xFFA78BFA), fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Ask Gemini to calculate specific urban recycling or monsoon flood scenarios in Dhaka:',
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _simulatorQueryController,
+                            style: const TextStyle(color: Colors.white, fontSize: 12.5),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. "Simulate 5,000 kg plastic in Mirpur before monsoon"',
+                              hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                              filled: true,
+                              fillColor: const Color(0xFF0F172A),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFF8B5CF6)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _buildScenarioChip('Monsoon flood risk'),
+                              _buildScenarioChip('Expand 3x smart booths'),
+                              _buildScenarioChip('Hatirjheel canal cleanup'),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 38,
+                            child: ElevatedButton.icon(
+                              onPressed: _isAiLoading
+                                  ? null
+                                  : () {
+                                      final query = _simulatorQueryController.text.trim();
+                                      if (query.isNotEmpty) {
+                                        _fetchAiPrediction(customQuery: query);
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7C3AED),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.bolt_rounded, size: 16),
+                              label: const Text('Simulate with Gemini AI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
 
                   // Refresh AI Prediction Button
                   SizedBox(
@@ -727,7 +886,7 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
                             )
                           : const Icon(Icons.auto_awesome_rounded, size: 18),
                       label: Text(
-                        _isAiLoading ? 'Analyzing Environmental Impact...' : 'Refresh AI Analysis',
+                        _isAiLoading ? 'Analyzing with Gemini...' : 'Refresh Live AI Forecast',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                       ),
                     ),
@@ -874,6 +1033,35 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
           const SizedBox(height: 2),
           Text(subtext, style: const TextStyle(color: Color(0xFF64748B), fontSize: 9.5), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScenarioChip(String title) {
+    return InkWell(
+      onTap: () {
+        _simulatorQueryController.text = title;
+        _fetchAiPrediction(customQuery: title);
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFF334155),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF64748B).withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFDE047), size: 12),
+            const SizedBox(width: 4),
+            Text(
+              title,
+              style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
       ),
     );
   }

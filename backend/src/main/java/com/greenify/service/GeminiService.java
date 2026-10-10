@@ -38,11 +38,13 @@ public class GeminiService {
     private String geminiModel;
 
     private static final List<String> CANDIDATE_MODELS = List.of(
-            "gemini-3.5-flash",
+            "gemini-flash-lite-latest",
+            "gemini-3.5-flash-lite",
             "gemini-flash-latest",
-            "gemini-3.8-flash",
+            "gemini-3.5-flash",
+            "gemini-3-flash-preview",
             "gemini-3.7-flash",
-            "gemini-3.6-flash"
+            "gemini-3.8-flash"
     );
 
     private static final String GEMINI_API_URL_TEMPLATE =
@@ -202,8 +204,9 @@ public class GeminiService {
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(url))
                         .header("Content-Type", "application/json")
+                        .header("x-goog-api-key", apiKey)
                         .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                        .timeout(Duration.ofSeconds(20))
+                        .timeout(Duration.ofSeconds(15))
                         .build();
 
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -366,6 +369,7 @@ public class GeminiService {
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(url))
                         .header("Content-Type", "application/json")
+                        .header("x-goog-api-key", apiKey)
                         .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                         .timeout(Duration.ofSeconds(15))
                         .build();
